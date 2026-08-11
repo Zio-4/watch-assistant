@@ -1,0 +1,10 @@
+.DS_Store
+.env
+.env.local
+.vercel
+DerivedData/
+*.xcuserstate
+xcuserdata/
+backend/node_modules/
+backend/coverage/
+

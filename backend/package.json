@@ -1,0 +1,23 @@
+{
+  "name": "watch-assistant-session-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ai-sdk/gateway": "^4.0.47",
+    "ai": "^7.0.59"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}
