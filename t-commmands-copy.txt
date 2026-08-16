@@ -1,0 +1,68 @@
+# Add RVM to PATH for scripting. Make sure this is the last PATH variable change.
+export PATH="$PATH:$HOME/.rvm/bin"
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# Add Starship prompt or equivalent
+
+gp() {
+  git add .
+  git commit -m "$1"
+  git push -u origin $(git rev-parse --abbrev-ref HEAD)
+}
+
+gpul() {
+  git pull
+}
+
+gd() {
+  git diff
+}
+
+gs() {
+  git status
+}
+
+gc() {
+  git checkout $1 2>/dev/null || git checkout -b $1
+}
+
+gb() {
+  git branch 
+}
+
+gl() {
+  git log
+}
+
+grm() {
+  git rebase origin/main
+}
+
+gr() {
+  git rebase -i HEAD~$1
+}
+
+c() {
+  cursor .
+}
+
+oc() {
+  opencode
+}
+
+xc () {
+  open -a Xcode .
+}
+
+cl() {
+  clear
+}
+
+# >>> grok installer >>>
+export PATH="$HOME/.grok/bin:$PATH"
+fpath=(~/.grok/completions/zsh $fpath)
+autoload -Uz compinit && compinit -C
+# <<< grok installer <<<
