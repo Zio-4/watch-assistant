@@ -17,12 +17,16 @@ targets:
       - path: WatchAssistant
     info:
       path: WatchAssistant/App/Info.plist
+      properties:
+        WKApplication: true
+        WKWatchOnly: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.philipziolkowski.WatchAssistant
         PRODUCT_NAME: WatchAssistant
         TARGETED_DEVICE_FAMILY: "4"
         ENABLE_USER_SCRIPT_SANDBOXING: YES
+        SKIP_INSTALL: NO
     scheme:
       gatherCoverageData: true
 

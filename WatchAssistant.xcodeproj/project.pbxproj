@@ -278,7 +278,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.philipziolkowski.WatchAssistant;
 				PRODUCT_NAME = WatchAssistant;
 				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				TARGETED_DEVICE_FAMILY = 4;
 			};
 			name = Debug;
@@ -350,7 +350,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.philipziolkowski.WatchAssistant;
 				PRODUCT_NAME = WatchAssistant;
 				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				TARGETED_DEVICE_FAMILY = 4;
 			};
 			name = Release;
