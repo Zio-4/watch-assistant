@@ -9,6 +9,10 @@ type Environment = {
   REALTIME_MODEL?: string;
 };
 
+// This single shared bearer credential is intentional for the private MVP. If the app
+// is shared publicly, replace it with per-user/per-device authentication, rotating
+// access tokens, and server-side revocation (for example, Sign in with Apple).
+
 type Dependencies = {
   env?: Environment;
   getToken?: (model: string, expiresAfterSeconds: number) => Promise<GatewayToken>;
