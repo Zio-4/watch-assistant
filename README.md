@@ -39,11 +39,12 @@ Set a budget on the AI Gateway API key in the Vercel dashboard. Budget controls 
 
 1. Run `xcodegen generate` after changing `project.yml`.
 2. Open `WatchAssistant.xcodeproj`.
-3. Select the `WatchAssistant` target and choose your Apple developer team.
-4. Build and install the app on the paired Apple Watch.
-5. Open the gear button in the app.
-6. Enter the deployed HTTPS endpoint, including `/api/realtime/session`.
-7. Enter the same personal credential as `WATCH_APP_CREDENTIAL` and tap **Save and connect**.
+3. Select the `WatchAssistant` scheme. Choose a watchOS Simulator destination, or a paired Apple Watch.
+4. Select your Apple developer team on the `WatchAssistant` and `WatchAssistantContainer` targets.
+5. Build and run. The watch app ID is `com.philipziolkowski.WatchAssistant.watchkitapp`; it is embedded in a watch-only iOS container so the simulator can install and launch it.
+6. Open the gear button in the app.
+7. Enter the deployed HTTPS endpoint, including `/api/realtime/session`.
+8. Enter the same personal credential as `WATCH_APP_CREDENTIAL` and tap **Save and connect**.
 
 The credential is stored as a Keychain generic password with `AfterFirstUnlockThisDeviceOnly` accessibility. The AI Gateway API key is never sent to or embedded in the watch app.
 

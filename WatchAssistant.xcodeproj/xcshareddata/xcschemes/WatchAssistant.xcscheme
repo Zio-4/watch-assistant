@@ -20,6 +20,20 @@
                ReferencedContainer = "container:WatchAssistant.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "2B3C4D5E6F708192A3B4C5D6"
+               BuildableName = "WatchAssistantContainer.app"
+               BlueprintName = "WatchAssistantContainer"
+               ReferencedContainer = "container:WatchAssistant.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

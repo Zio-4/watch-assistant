@@ -3,12 +3,15 @@ options:
   bundleIdPrefix: com.philipziolkowski
   deploymentTarget:
     watchOS: "26.0"
+    iOS: "26.0"
   xcodeVersion: "26.0"
 settings:
   base:
     SWIFT_VERSION: "6.0"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: ""
+    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.0"
 targets:
   WatchAssistant:
     type: application
@@ -18,15 +21,82 @@ targets:
     info:
       path: WatchAssistant/App/Info.plist
       properties:
+        CFBundleDisplayName: Watch Assistant
         WKApplication: true
         WKWatchOnly: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.philipziolkowski.WatchAssistant
+        PRODUCT_BUNDLE_IDENTIFIER: com.philipziolkowski.WatchAssistant.watchkitapp
         PRODUCT_NAME: WatchAssistant
         TARGETED_DEVICE_FAMILY: "4"
         ENABLE_USER_SCRIPT_SANDBOXING: YES
         SKIP_INSTALL: NO
-    scheme:
+        SDKROOT: watchos
+        SUPPORTED_PLATFORMS: "watchos watchsimulator"
+        SUPPORTS_MACCATALYST: NO
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+        ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: YES
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Watch Assistant
+        INFOPLIST_KEY_WKApplication: YES
+        INFOPLIST_KEY_WKWatchOnly: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: YES
+        ENABLE_PREVIEWS: YES
+  WatchAssistantContainer:
+    type: application.watchapp2-container
+    platform: iOS
+    sources:
+      - path: WatchAssistantContainer
+    info:
+      path: WatchAssistantContainer/Info.plist
+      properties:
+        CFBundleDisplayName: Watch Assistant
+        ITSWatchOnlyContainer: true
+        LSApplicationLaunchProhibited: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortraitUpsideDown
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.philipziolkowski.WatchAssistant
+        PRODUCT_NAME: WatchAssistantContainer
+        SDKROOT: iphoneos
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        SUPPORTS_MACCATALYST: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: NO
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_ITSWatchOnlyContainer: YES
+        INFOPLIST_KEY_LSApplicationLaunchProhibited: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Watch Assistant
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+    dependencies:
+      - target: WatchAssistant
+        embed: true
+        copy:
+          destination: productsDirectory
+          subpath: "$(CONTENTS_FOLDER_PATH)/Watch"
+schemes:
+  WatchAssistant:
+    build:
+      targets:
+        WatchAssistant: all
+        WatchAssistantContainer: all
+    run:
+      config: Debug
+    test:
+      config: Debug
       gatherCoverageData: true
-
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
