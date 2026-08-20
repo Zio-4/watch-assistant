@@ -1,7 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci --prefix backend && ln -sfn backend/api api && ln -sfn backend/lib lib && ln -sfn backend/node_modules node_modules",
   "buildCommand": "echo 'functions-only; skip static frontend build'",
-  "outputDirectory": "public",
+  "outputDirectory": "backend/public",
   "functions": {
     "api/realtime/session.ts": {
       "maxDuration": 10

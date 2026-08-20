@@ -19,7 +19,7 @@ From `backend/`:
 ```sh
 nvm use
 npm install
-npm run build
+npm run typecheck
 npm test
 ```
 
@@ -29,7 +29,7 @@ Copy the names from `.env.example` into the Vercel project settings:
 - `WATCH_APP_CREDENTIAL`: a long random value used only by this personal watch app.
 - `REALTIME_MODEL`: defaults to `openai/gpt-realtime-mini`.
 
-Deploy `backend/` as the Vercel project root. The function is exposed as `POST /api/realtime/session`.
+Deploy `backend/` as the Vercel project root, or import the Git repo and leave the root directory at the repository root — `vercel.json` at the repo root installs the backend and exposes the function. The endpoint is `POST /api/realtime/session`.
 
 The endpoint accepts `Authorization: Bearer <WATCH_APP_CREDENTIAL>`, creates a 60-second client token, and returns the WebSocket URL, expiration, model, audio format, and application session ID. It applies a best-effort limit of five session creations per minute per client IP. For more than one serverless instance, configure a Vercel WAF rate-limit rule or replace the in-memory limiter with a shared store.
 
@@ -59,7 +59,7 @@ The phase is complete on a physical device when:
 The repository verifies the parts that do not require external credentials with:
 
 ```sh
-npm --prefix backend run build
+npm --prefix backend run typecheck
 npm --prefix backend test
 xcodebuild -project WatchAssistant.xcodeproj \
   -scheme WatchAssistant \
