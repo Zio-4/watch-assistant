@@ -41,7 +41,7 @@ Set a budget on the AI Gateway API key in the Vercel dashboard. Budget controls 
 2. Open `WatchAssistant.xcodeproj`.
 3. Select the `WatchAssistant` target and choose your Apple developer team.
 4. Build and install the app on the paired Apple Watch.
-5. Open the gear button in the app.
+5. Open **Settings** (or the gear) in the app.
 6. Enter the deployed HTTPS endpoint, including `/api/realtime/session`.
 7. Enter the same personal credential as `WATCH_APP_CREDENTIAL` and tap **Save and connect**.
 
