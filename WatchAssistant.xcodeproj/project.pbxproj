@@ -7,13 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		08192B3C4D5E6F708192A3B4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5E6F708192B3C4D5E6F7081 /* Assets.xcassets */; };
 		3B0DA4602235265284118D8A /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE6B79E0D873980B5041D936 /* AudioController.swift */; };
 		535CF135581A692F5AB767A8 /* WatchAssistantApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 286310D3FCB60A19DEF84959 /* WatchAssistantApp.swift */; };
 		58B441CB6704C6414446FE07 /* GatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53F72F2EE443C6E93B8E9DC /* GatewayClient.swift */; };
 		7E9815CDD5913BD7F97DC7EC /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E9D133AE108D08BA318330 /* AppConfiguration.swift */; };
-		7F8091A2B3C4D5E6F708192B /* WatchAssistant.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AB5BC1650590C23DD87BA953 /* WatchAssistant.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		E292B3C4D5E6F708192A3B4C /* WatchAssistantContainerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E192B3C4D5E6F708192A3B4C /* WatchAssistantContainerApp.swift */; };
 		84867EBB4C91E20C3FC1BD58 /* AudioFormatConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E29D606E6A85AE97C3FC5A /* AudioFormatConverter.swift */; };
 		91ED5A98018D1E683CDBFA96 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B6B6622C8CA097E219A39CD /* ConversationView.swift */; };
 		93DE4B111C14EC839D10792B /* GatewayEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96ACBD9F5D317D300F638335 /* GatewayEvents.swift */; };
@@ -25,33 +22,8 @@
 		F800DE0F952C14DBDB5BBDE8 /* ConversationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F1D2961977C4D2082741D /* ConversationState.swift */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXContainerItemProxy section */
-		192B3C4D5E6F708192A3B4C5 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = FB60F4C0B425EEE94AFA522E /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4AEA77540C350E1A297BCC3B;
-			remoteInfo = WatchAssistant;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		6F708192A3B4C5D6E7F8091A /* Embed Watch Content */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolderSpec = 16;
-			files = (
-				7F8091A2B3C4D5E6F708192B /* WatchAssistant.app in Embed Watch Content */,
-			);
-			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
 		0E8C8EAEE025B2ADAF3629A5 /* SessionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionClient.swift; sourceTree = "<group>"; };
-		1A2B3C4D5E6F708192A3B4C5 /* WatchAssistantContainer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WatchAssistantContainer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		286310D3FCB60A19DEF84959 /* WatchAssistantApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAssistantApp.swift; sourceTree = "<group>"; };
 		2E2F1D2961977C4D2082741D /* ConversationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationState.swift; sourceTree = "<group>"; };
 		4B6B6622C8CA097E219A39CD /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
@@ -59,13 +31,10 @@
 		8D4A041C935D7728ACACD7F6 /* CredentialSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialSettingsView.swift; sourceTree = "<group>"; };
 		96AB03C13AE79A54619DD72E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		96ACBD9F5D317D300F638335 /* GatewayEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayEvents.swift; sourceTree = "<group>"; };
-		A2B3C4D5E6F708192B3C4D5E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A8E29D606E6A85AE97C3FC5A /* AudioFormatConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFormatConverter.swift; sourceTree = "<group>"; };
 		AB5BC1650590C23DD87BA953 /* WatchAssistant.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WatchAssistant.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B53F72F2EE443C6E93B8E9DC /* GatewayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayClient.swift; sourceTree = "<group>"; };
 		C610BD5CF4E744998533B28A /* CredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStore.swift; sourceTree = "<group>"; };
-		D5E6F708192B3C4D5E6F7081 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		E192B3C4D5E6F708192A3B4C /* WatchAssistantContainerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAssistantContainerApp.swift; sourceTree = "<group>"; };
 		F71F1C3BC6CABDDDACBC1D46 /* DiagnosticLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticLog.swift; sourceTree = "<group>"; };
 		F7E9D133AE108D08BA318330 /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		FE6B79E0D873980B5041D936 /* AudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioController.swift; sourceTree = "<group>"; };
@@ -104,7 +73,6 @@
 			isa = PBXGroup;
 			children = (
 				AB5BC1650590C23DD87BA953 /* WatchAssistant.app */,
-				1A2B3C4D5E6F708192A3B4C5 /* WatchAssistantContainer.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -113,7 +81,6 @@
 			isa = PBXGroup;
 			children = (
 				3CBAA306AB39F2DB4FAAE2BB /* App */,
-				D5E6F708192B3C4D5E6F7081 /* Assets.xcassets */,
 				416088DC015CE5DC30E80274 /* Audio */,
 				2ED70083799DDDB998AE067F /* Conversation */,
 				B79AF89F5B3B58EE32213BC2 /* Diagnostics */,
@@ -127,18 +94,8 @@
 			isa = PBXGroup;
 			children = (
 				994C4E82B41A598602945527 /* WatchAssistant */,
-				B3C4D5E6F708192B3C4D5E6F /* WatchAssistantContainer */,
 				5C1BAB182091350245AD271A /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		B3C4D5E6F708192B3C4D5E6F /* WatchAssistantContainer */ = {
-			isa = PBXGroup;
-			children = (
-				E192B3C4D5E6F708192A3B4C /* WatchAssistantContainerApp.swift */,
-				A2B3C4D5E6F708192B3C4D5E /* Info.plist */,
-			);
-			path = WatchAssistantContainer;
 			sourceTree = "<group>";
 		};
 		B79AF89F5B3B58EE32213BC2 /* Diagnostics */ = {
@@ -172,32 +129,11 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		2B3C4D5E6F708192A3B4C5D6 /* WatchAssistantContainer */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 5E6F708192A3B4C5D6E7F809 /* Build configuration list for PBXNativeTarget "WatchAssistantContainer" */;
-			buildPhases = (
-				E392B3C4D5E6F708192A3B4C /* Sources */,
-				C4D5E6F708192B3C4D5E6F70 /* Resources */,
-				6F708192A3B4C5D6E7F8091A /* Embed Watch Content */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				8091A2B3C4D5E6F708192B3C /* PBXTargetDependency */,
-			);
-			name = WatchAssistantContainer;
-			packageProductDependencies = (
-			);
-			productName = WatchAssistantContainer;
-			productReference = 1A2B3C4D5E6F708192A3B4C5 /* WatchAssistantContainer.app */;
-			productType = "com.apple.product-type.application.watchapp2-container";
-		};
 		4AEA77540C350E1A297BCC3B /* WatchAssistant */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 20C57CDD33265987654E90E5 /* Build configuration list for PBXNativeTarget "WatchAssistant" */;
 			buildPhases = (
 				107D53E66B37815F06B24094 /* Sources */,
-				F708192B3C4D5E6F708192A3 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -219,10 +155,6 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
-					2B3C4D5E6F708192A3B4C5D6 = {
-						DevelopmentTeam = "";
-						ProvisioningStyle = Automatic;
-					};
 					4AEA77540C350E1A297BCC3B = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
@@ -244,28 +176,9 @@
 			projectRoot = "";
 			targets = (
 				4AEA77540C350E1A297BCC3B /* WatchAssistant */,
-				2B3C4D5E6F708192A3B4C5D6 /* WatchAssistantContainer */,
 			);
 		};
 /* End PBXProject section */
-
-/* Begin PBXResourcesBuildPhase section */
-		C4D5E6F708192B3C4D5E6F70 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F708192B3C4D5E6F708192A3 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				08192B3C4D5E6F708192A3B4 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		107D53E66B37815F06B24094 /* Sources */ = {
@@ -288,23 +201,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E392B3C4D5E6F708192A3B4C /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				E292B3C4D5E6F708192A3B4C /* WatchAssistantContainerApp.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		8091A2B3C4D5E6F708192B3C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4AEA77540C350E1A297BCC3B /* WatchAssistant */;
-			targetProxy = 192B3C4D5E6F708192A3B4C5 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		3BEA289CBA0E6F8EF5A9E9A9 /* Debug */ = {
@@ -342,7 +239,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -361,12 +257,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
@@ -374,79 +269,17 @@
 			};
 			name = Debug;
 		};
-		3C4D5E6F708192A3B4C5D6E7 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = WatchAssistantContainer/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Watch Assistant";
-				INFOPLIST_KEY_ITSWatchOnlyContainer = YES;
-				INFOPLIST_KEY_LSApplicationLaunchProhibited = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.philipziolkowski.WatchAssistant;
-				PRODUCT_NAME = WatchAssistantContainer;
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		4D5E6F708192A3B4C5D6E7F8 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = WatchAssistantContainer/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Watch Assistant";
-				INFOPLIST_KEY_ITSWatchOnlyContainer = YES;
-				INFOPLIST_KEY_LSApplicationLaunchProhibited = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.philipziolkowski.WatchAssistant;
-				PRODUCT_NAME = WatchAssistantContainer;
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
 		7B31DAAC3CC293FF593B3D21 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WatchAssistant/App/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Watch Assistant";
-				INFOPLIST_KEY_WKApplication = YES;
-				INFOPLIST_KEY_WKWatchOnly = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.philipziolkowski.WatchAssistant.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.philipziolkowski.WatchAssistant;
 				PRODUCT_NAME = WatchAssistant;
 				SDKROOT = watchos;
 				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "watchos watchsimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = 4;
 			};
 			name = Debug;
@@ -486,7 +319,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -499,11 +331,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
@@ -514,26 +345,14 @@
 		8CC989589BD0FC878EAE5908 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WatchAssistant/App/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Watch Assistant";
-				INFOPLIST_KEY_WKApplication = YES;
-				INFOPLIST_KEY_WKWatchOnly = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.philipziolkowski.WatchAssistant.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.philipziolkowski.WatchAssistant;
 				PRODUCT_NAME = WatchAssistant;
 				SDKROOT = watchos;
 				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "watchos watchsimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = 4;
 			};
 			name = Release;
@@ -546,15 +365,6 @@
 			buildConfigurations = (
 				7B31DAAC3CC293FF593B3D21 /* Debug */,
 				8CC989589BD0FC878EAE5908 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
-		5E6F708192A3B4C5D6E7F809 /* Build configuration list for PBXNativeTarget "WatchAssistantContainer" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				3C4D5E6F708192A3B4C5D6E7 /* Debug */,
-				4D5E6F708192A3B4C5D6E7F8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
