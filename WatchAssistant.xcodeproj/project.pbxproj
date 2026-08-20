@@ -279,6 +279,7 @@
 				PRODUCT_NAME = WatchAssistant;
 				SDKROOT = watchos;
 				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
 				TARGETED_DEVICE_FAMILY = 4;
 			};
 			name = Debug;
@@ -351,6 +352,7 @@
 				PRODUCT_NAME = WatchAssistant;
 				SDKROOT = watchos;
 				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
 				TARGETED_DEVICE_FAMILY = 4;
 			};
 			name = Release;
