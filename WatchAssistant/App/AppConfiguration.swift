@@ -9,7 +9,10 @@ enum AppConfiguration {
 
     static var sessionServiceURL: URL? {
         let stored = UserDefaults.standard.string(forKey: sessionServiceURLKey)
-        return URL(string: stored?.trimmingCharacters(in: .whitespacesAndNewlines) ?? defaultSessionServiceURL)
+        let candidate = stored?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolved = (candidate?.isEmpty == false ? candidate : nil)
+            ?? defaultSessionServiceURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !resolved.isEmpty else { return nil }
+        return URL(string: resolved)
     }
 }
-

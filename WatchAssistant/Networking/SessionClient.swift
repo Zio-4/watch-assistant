@@ -12,7 +12,7 @@ struct RealtimeSession: Decodable, Sendable {
     let model: String
     let url: URL
     let token: String
-    let expiresAt: Date
+    let expiresAt: String
     let audio: AudioSettings
 }
 
@@ -39,10 +39,8 @@ struct SessionClient: Sendable {
             throw SessionClientError.httpStatus(httpResponse.statusCode)
         }
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
         do {
-            return try decoder.decode(RealtimeSession.self, from: data)
+            return try JSONDecoder().decode(RealtimeSession.self, from: data)
         } catch {
             throw SessionClientError.invalidResponse
         }
@@ -66,4 +64,3 @@ enum SessionClientError: LocalizedError {
         }
     }
 }
-
