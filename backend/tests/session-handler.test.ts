@@ -19,6 +19,23 @@ function request(credential = 'watch-secret') {
 }
 
 describe('POST /api/realtime/session', () => {
+  it('returns a health check on GET', async () => {
+    const handler = createSessionHandler({
+      env: configuredEnvironment,
+      getToken: vi.fn(),
+    });
+
+    const response = await handler(
+      new Request('https://service.test/api/realtime/session', { method: 'GET' }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      service: 'watch-assistant-session',
+    });
+  });
+
   it('returns a short-lived session and audio settings', async () => {
     const getToken = vi.fn().mockResolvedValue({
       token: 'vcst_test',

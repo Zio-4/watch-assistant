@@ -27,6 +27,7 @@ struct SessionClient: Sendable {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
+        request.setValue("WatchAssistant/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 15
@@ -57,10 +58,20 @@ enum SessionClientError: LocalizedError {
             "The session service returned an invalid response."
         case .httpStatus(401):
             "The personal app credential was rejected."
+        case .httpStatus(403):
+            "Vercel blocked the request (403). Turn off Deployment Protection for production."
+        case .httpStatus(404):
+            "No function at this URL (404). Use https://YOUR-APP.vercel.app/api/realtime/session"
+        case .httpStatus(405):
+            "This URL does not accept POST (405)."
         case .httpStatus(429):
             "Too many connection attempts. Wait one minute and retry."
-        case .httpStatus:
-            "The session service could not create a model session."
+        case .httpStatus(500):
+            "Session service is missing env vars (500)."
+        case .httpStatus(502):
+            "AI Gateway could not mint a token (502)."
+        case .httpStatus(let code):
+            "Session service returned HTTP \(code)."
         }
     }
 }

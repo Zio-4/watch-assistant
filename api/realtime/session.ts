@@ -1,4 +1,4 @@
-import { createSessionHandler } from '../../lib/session-handler.js';
+import { createSessionHandler } from '../../backend/lib/session-handler.js';
 
 export const runtime = 'nodejs';
 

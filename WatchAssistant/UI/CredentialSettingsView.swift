@@ -71,7 +71,8 @@ struct CredentialSettingsView: View {
         let trimmedURL = serviceURL
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\n", with: "")
-        guard let url = URL(string: trimmedURL), url.scheme == "https" else {
+        guard let url = AppConfiguration.normalizedSessionServiceURL(from: trimmedURL),
+              url.scheme == "https" else {
             errorMessage = "Enter a valid HTTPS URL."
             return
         }
@@ -90,7 +91,7 @@ struct CredentialSettingsView: View {
             if !trimmedCredential.isEmpty {
                 try credentialStore.save(resolvedCredential)
             }
-            UserDefaults.standard.set(trimmedURL, forKey: AppConfiguration.sessionServiceURLKey)
+            UserDefaults.standard.set(url.absoluteString, forKey: AppConfiguration.sessionServiceURLKey)
             dismiss()
             await controller.connect(endpoint: url, credential: resolvedCredential)
         } catch {

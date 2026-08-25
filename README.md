@@ -29,9 +29,13 @@ Copy the names from `.env.example` into the Vercel project settings:
 - `WATCH_APP_CREDENTIAL`: a long random value used only by this personal watch app.
 - `REALTIME_MODEL`: defaults to `openai/gpt-realtime-mini`.
 
-Deploy `backend/` as the Vercel project root, or import the Git repo and leave the root directory at the repository root — `vercel.json` at the repo root installs the backend and exposes the function. The endpoint is `POST /api/realtime/session`.
+Deploy `backend/` as the Vercel **Root Directory**, or deploy the Git repo root (this repository now includes a real `/api` route). The watch must call:
 
-The endpoint accepts `Authorization: Bearer <WATCH_APP_CREDENTIAL>`, creates a 60-second client token, and returns the WebSocket URL, expiration, model, audio format, and application session ID. It applies a best-effort limit of five session creations per minute per client IP. For more than one serverless instance, configure a Vercel WAF rate-limit rule or replace the in-memory limiter with a shared store.
+`https://YOUR-APP.vercel.app/api/realtime/session`
+
+Paste the deployment origin alone if you want — the app appends `/api/realtime/session`. In a browser, that URL should return JSON `{ "ok": true, ... }`. If you get a Vercel login page, turn off Deployment Protection for Production (Project Settings → Deployment Protection). Function logs only appear after this URL hits the serverless function.
+
+The endpoint accepts `Authorization: Bearer <WATCH_APP_CREDENTIAL>` on POST, creates a 60-second client token, and returns the WebSocket URL, expiration, model, audio format, and application session ID. It applies a best-effort limit of five session creations per minute per client IP. For more than one serverless instance, configure a Vercel WAF rate-limit rule or replace the in-memory limiter with a shared store.
 
 Set a budget on the AI Gateway API key in the Vercel dashboard. Budget controls are account configuration and are not stored in this repository.
 
