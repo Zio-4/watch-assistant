@@ -1,7 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "echo 'functions-only; skip static frontend build'",
-  "outputDirectory": "public",
+  "buildCommand": "npm run typecheck",
   "functions": {
     "api/realtime/session.ts": {
       "maxDuration": 10

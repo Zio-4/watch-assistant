@@ -63,10 +63,15 @@ struct ConversationView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 Task {
-                    if phase == .active {
+                    switch phase {
+                    case .active:
                         await controller.connectIfNeeded()
-                    } else {
+                    case .background:
                         await controller.disconnect()
+                    default:
+                        // Sheets make the scene inactive on watchOS. Do not
+                        // tear down a connection the user just asked to start.
+                        break
                     }
                 }
             }

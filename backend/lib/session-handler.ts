@@ -39,6 +39,17 @@ export function createSessionHandler(dependencies: Dependencies = {}) {
   const randomUUID = dependencies.randomUUID ?? (() => crypto.randomUUID());
 
   return async function handleSession(request: Request): Promise<Response> {
+    if (request.method === 'GET' || request.method === 'HEAD') {
+      return json(
+        {
+          ok: true,
+          service: 'watch-assistant-session',
+          hint: 'POST with Authorization: Bearer <WATCH_APP_CREDENTIAL>',
+        },
+        200,
+      );
+    }
+
     if (request.method !== 'POST') {
       return json({ error: 'method_not_allowed' }, 405, { allow: 'POST' });
     }
