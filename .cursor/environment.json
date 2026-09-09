@@ -1,0 +1,4 @@
+{
+  "name": "Watch Assistant",
+  "install": "npm ci --prefix backend"
+}
