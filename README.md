@@ -1,8 +1,6 @@
 # Watch Assistant
 
-Phase one of the watch assistant MVP. The watchOS app stores a personal credential in Keychain, requests a short-lived AI Gateway token from a Vercel Function, opens an authenticated realtime WebSocket, and closes it when the app leaves the active state.
-
-Voice recording and playback are intentionally not active yet. The **Talk** button shows the planned phase-two action but stays disabled in this phase.
+Phase two of the watch assistant MVP. The watchOS app stores a personal credential in Keychain, requests a short-lived AI Gateway token from a Vercel Function, and opens an authenticated realtime WebSocket. When the session is ready, **Talk** records a spoken turn, streams PCM audio to the model, and **Done** commits it. Playback of the reply is phase three.
 
 ## Requirements
 
@@ -51,14 +49,18 @@ Set a budget on the AI Gateway API key in the Vercel dashboard. Budget controls 
 
 The credential is stored as a Keychain generic password with `AfterFirstUnlockThisDeviceOnly` accessibility. The AI Gateway API key is never sent to or embedded in the watch app.
 
-## Phase-one device check
+Grant microphone access the first time you tap **Talk**. The watch converts microphone buffers to 24 kHz mono PCM16, writes the turn to a temporary file, and sends ordered `input-audio-append` chunks. **Done** stops capture and sends `input-audio-commit` plus `response-create`. The UI then shows **Thinking** until the model finishes; speaker playback lands in phase three.
+
+## Phase-two device check
 
 The phase is complete on a physical device when:
 
 1. Launching the app changes **Connecting** to **Ready**.
-2. Vercel logs show the application session ID without either secret value.
-3. Backgrounding the app closes the WebSocket; foregrounding it creates a new short-lived session.
-4. Searching the built app and source confirms that the real `AI_GATEWAY_API_KEY` value is absent.
+2. Tapping **Talk** changes the button to **Done** and the title to **Listening**.
+3. Tapping **Done** stops the microphone and shows **Thinking**.
+4. Vercel logs show the application session ID without either secret value.
+5. Backgrounding the app closes the WebSocket; foregrounding it creates a new short-lived session.
+6. Searching the built app and source confirms that the real `AI_GATEWAY_API_KEY` value is absent.
 
 The repository verifies the parts that do not require external credentials with:
 

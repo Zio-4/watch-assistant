@@ -11,7 +11,10 @@ struct ConversationView: View {
                 Image(systemName: controller.state.symbolName)
                     .font(.system(size: 34))
                     .foregroundStyle(controller.state.tint)
-                    .symbolEffect(.pulse, isActive: controller.state == .connecting)
+                    .symbolEffect(
+                        .pulse,
+                        isActive: controller.state == .connecting || controller.state == .recording
+                    )
 
                 Text(controller.state.title)
                     .font(.headline)
@@ -28,7 +31,8 @@ struct ConversationView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(controller.state.tint)
-                    .disabled(controller.actionInFlight || controller.state == .ready)
+                    .disabled(controller.actionInFlight)
+                    .accessibilityIdentifier("primaryAction")
                 } else if controller.actionInFlight {
                     ProgressView()
                 }
@@ -37,12 +41,6 @@ struct ConversationView: View {
                     showsSettings = true
                 }
                 .font(.caption)
-
-                if controller.state == .ready {
-                    Text("Voice capture starts in phase two")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.tertiary)
-                }
             }
             .padding(.horizontal, 8)
             .toolbar {
@@ -59,6 +57,20 @@ struct ConversationView: View {
                 CredentialSettingsView(controller: controller)
             }
             .task {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-preview-ready") {
+                    controller.preparePreviewReady()
+                    if ProcessInfo.processInfo.arguments.contains("-auto-talk") {
+                        Task {
+                            try? await Task.sleep(for: .milliseconds(800))
+                            await controller.performPrimaryAction()
+                            try? await Task.sleep(for: .seconds(2))
+                            await controller.performPrimaryAction()
+                        }
+                    }
+                    return
+                }
+                #endif
                 await controller.connectIfNeeded()
             }
             .onChange(of: scenePhase) { _, phase in

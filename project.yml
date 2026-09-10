@@ -20,6 +20,7 @@ targets:
       properties:
         WKApplication: true
         WKWatchOnly: true
+        NSMicrophoneUsageDescription: Watch Assistant records your voice so the assistant can hear a spoken turn.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.philipziolkowski.WatchAssistant
