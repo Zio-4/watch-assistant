@@ -18,6 +18,7 @@ final class ConversationController {
     private var captureTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var didSendAudio = false
+    /// Simulator/debug only. Set by `-preview-ready`; skips the live Gateway session.
     private var isLocalPreview = false
 
     init(
@@ -39,6 +40,7 @@ final class ConversationController {
     }
 
     #if DEBUG
+    /// Simulator/debug only. Used with the `-preview-ready` launch argument.
     func preparePreviewReady() {
         isLocalPreview = true
         appSessionID = "preview"
@@ -136,6 +138,7 @@ final class ConversationController {
                 do {
                     for try await chunk in chunks {
                         try Task.checkCancellation()
+                        // Simulator/debug: `-preview-ready` has no WebSocket, so skip sending.
                         if !self.isLocalPreview {
                             try await self.gatewayClient.sendAudioChunk(chunk)
                         }
@@ -167,6 +170,7 @@ final class ConversationController {
                 state = .ready
                 return
             }
+            // Simulator/debug: no Gateway session to commit.
             if isLocalPreview {
                 await audioController.deleteTurnFile()
                 state = .waiting

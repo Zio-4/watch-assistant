@@ -27,6 +27,7 @@ actor AudioController {
 
         let input = engine.inputNode
         let inputFormat = input.inputFormat(forBus: 0)
+        // Simulator-only: Watch Simulator often reports 0 Hz, so Talk has no mic buffers.
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             DiagnosticLog.audio.info("Microphone format unavailable; using silence for this turn")
             return try startSilenceCapture(sampleRate: sampleRate, channels: max(channels, 1))
@@ -85,6 +86,7 @@ actor AudioController {
         self.turnFileURL = nil
     }
 
+    /// Simulator-only fallback that emits silent PCM so Talk/Done still complete a turn.
     private func startSilenceCapture(sampleRate: Int, channels: Int) throws -> AsyncThrowingStream<Data, Error> {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("watch-assistant-turn-\(UUID().uuidString).pcm")

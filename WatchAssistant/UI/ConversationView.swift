@@ -58,6 +58,7 @@ struct ConversationView: View {
             }
             .task {
                 #if DEBUG
+                // Simulator/debug launch arguments. See docs/debugging.md.
                 if ProcessInfo.processInfo.arguments.contains("-preview-ready") {
                     controller.preparePreviewReady()
                     if ProcessInfo.processInfo.arguments.contains("-auto-talk") {

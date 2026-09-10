@@ -1,6 +1,8 @@
 # Watch Assistant
 
-Phase two of the watch assistant MVP. The watchOS app stores a personal credential in Keychain, requests a short-lived AI Gateway token from a Vercel Function, and opens an authenticated realtime WebSocket. When the session is ready, **Talk** records a spoken turn, streams PCM audio to the model, and **Done** commits it. Playback of the reply is phase three.
+A watchOS app for turn-based voice conversations with an OpenAI audio model through Vercel AI Gateway. The watch stores a personal credential in Keychain, requests a short-lived session token from a Vercel Function, and streams microphone audio over an authenticated WebSocket. **Talk** starts a turn; **Done** commits it.
+
+Permanent provider keys stay on the server. The watch never embeds `AI_GATEWAY_API_KEY`.
 
 ## Requirements
 
@@ -8,7 +10,7 @@ Phase two of the watch assistant MVP. The watchOS app stores a personal credenti
 - XcodeGen (`brew install xcodegen`) when changing `project.yml`
 - Node.js 22 or newer
 - A Vercel project with AI Gateway enabled
-- A physical Apple Watch running watchOS 26 for the final connection check
+- A physical Apple Watch running watchOS 26 for a real microphone and speaker check
 
 ## Backend setup
 
@@ -27,7 +29,7 @@ Copy the names from `.env.example` into the Vercel project settings:
 - `WATCH_APP_CREDENTIAL`: a long random value used only by this personal watch app.
 - `REALTIME_MODEL`: defaults to `openai/gpt-realtime-mini`.
 
-Deploy `backend/` as the Vercel **Root Directory**, or deploy the Git repo root (this repository now includes a real `/api` route). The watch must call:
+Deploy `backend/` as the Vercel **Root Directory**, or deploy the Git repo root (this repository includes a real `/api` route). The watch must call:
 
 `https://YOUR-APP.vercel.app/api/realtime/session`
 
@@ -47,20 +49,9 @@ Set a budget on the AI Gateway API key in the Vercel dashboard. Budget controls 
 6. Enter the deployed HTTPS endpoint, including `/api/realtime/session`.
 7. Enter the same personal credential as `WATCH_APP_CREDENTIAL` and tap **Save and connect**.
 
-The credential is stored as a Keychain generic password with `AfterFirstUnlockThisDeviceOnly` accessibility. The AI Gateway API key is never sent to or embedded in the watch app.
+The credential is stored as a Keychain generic password with `AfterFirstUnlockThisDeviceOnly` accessibility.
 
-Grant microphone access the first time you tap **Talk**. The watch converts microphone buffers to 24 kHz mono PCM16, writes the turn to a temporary file, and sends ordered `input-audio-append` chunks. **Done** stops capture and sends `input-audio-commit` plus `response-create`. The UI then shows **Thinking** until the model finishes; speaker playback lands in phase three.
-
-## Phase-two device check
-
-The phase is complete on a physical device when:
-
-1. Launching the app changes **Connecting** to **Ready**.
-2. Tapping **Talk** changes the button to **Done** and the title to **Listening**.
-3. Tapping **Done** stops the microphone and shows **Thinking**.
-4. Vercel logs show the application session ID without either secret value.
-5. Backgrounding the app closes the WebSocket; foregrounding it creates a new short-lived session.
-6. Searching the built app and source confirms that the real `AI_GATEWAY_API_KEY` value is absent.
+Grant microphone access the first time you tap **Talk**. The watch converts microphone audio to 24 kHz mono PCM16 and streams it to the model.
 
 The repository verifies the parts that do not require external credentials with:
 
@@ -73,6 +64,8 @@ xcodebuild -project WatchAssistant.xcodeproj \
   -derivedDataPath /tmp/WatchAssistantDerivedData \
   CODE_SIGNING_ALLOWED=NO build
 ```
+
+Simulator and debug launch arguments are documented in [`docs/debugging.md`](docs/debugging.md).
 
 ## Project layout
 
@@ -92,4 +85,3 @@ backend/
   lib/rate-limit.ts
   lib/session-handler.ts
 ```
-
