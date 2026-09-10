@@ -4,9 +4,16 @@ actor GatewayClient {
     private var urlSession: URLSession?
     private var webSocket: URLSessionWebSocketTask?
     private var openWaiter: WebSocketOpenWaiter?
+    private var receiveTask: Task<Void, Never>?
+    private var eventStream: AsyncStream<GatewayServerEvent>?
+    private var eventContinuation: AsyncStream<GatewayServerEvent>.Continuation?
 
     func connect(to session: RealtimeSession) async throws {
         disconnect()
+
+        let events = AsyncStream<GatewayServerEvent>.makeStream()
+        eventStream = events.stream
+        eventContinuation = events.continuation
 
         let waiter = WebSocketOpenWaiter()
         let configuration = URLSessionConfiguration.ephemeral
@@ -24,34 +31,84 @@ actor GatewayClient {
 
         do {
             try await waiter.waitUntilOpen(timeout: 15)
-            let update = GatewaySessionUpdate.phaseOne(session: session)
-            let data = try JSONEncoder().encode(update)
-            guard let text = String(data: data, encoding: .utf8) else {
-                throw GatewayClientError.encodingFailed
-            }
-            try await socket.send(.string(text))
+            listenForMessages(socket)
+            try await sendJSON(GatewaySessionUpdate.phaseOne(session: session))
         } catch {
-            socket.cancel(with: .goingAway, reason: nil)
-            urlSession.invalidateAndCancel()
-            self.webSocket = nil
-            self.urlSession = nil
-            self.openWaiter = nil
+            disconnect()
             throw error
         }
     }
 
+    func events() -> AsyncStream<GatewayServerEvent> {
+        eventStream ?? AsyncStream { $0.finish() }
+    }
+
+    func sendAudioChunk(_ pcm16: Data) async throws {
+        try await sendJSON(GatewayInputAudioAppend(audio: pcm16.base64EncodedString()))
+    }
+
+    func commitTurn() async throws {
+        try await sendJSON(GatewayInputAudioCommit())
+        try await sendJSON(GatewayResponseCreate())
+    }
+
     func disconnect() {
+        receiveTask?.cancel()
+        receiveTask = nil
+        eventContinuation?.finish()
+        eventContinuation = nil
+        eventStream = nil
         webSocket?.cancel(with: .normalClosure, reason: nil)
         urlSession?.invalidateAndCancel()
         webSocket = nil
         urlSession = nil
         openWaiter = nil
     }
+
+    private func sendJSON(_ value: some Encodable) async throws {
+        guard let webSocket else {
+            throw GatewayClientError.notConnected
+        }
+        let data = try JSONEncoder().encode(value)
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw GatewayClientError.encodingFailed
+        }
+        try await webSocket.send(.string(text))
+    }
+
+    private func listenForMessages(_ socket: URLSessionWebSocketTask) {
+        receiveTask = Task {
+            while !Task.isCancelled {
+                do {
+                    let message = try await socket.receive()
+                    let event: GatewayServerEvent
+                    switch message {
+                    case .string(let text):
+                        event = GatewayServerEvent.parse(text: text)
+                    case .data(let data):
+                        event = GatewayServerEvent.parse(data: data)
+                    @unknown default:
+                        event = .ignored
+                    }
+                    if event != .ignored {
+                        eventContinuation?.yield(event)
+                    }
+                } catch {
+                    if !Task.isCancelled {
+                        eventContinuation?.yield(.connectionClosed(error.localizedDescription))
+                        eventContinuation?.finish()
+                    }
+                    break
+                }
+            }
+        }
+    }
 }
 
 enum GatewayClientError: LocalizedError {
     case encodingFailed
     case timeout
+    case notConnected
 
     var errorDescription: String? {
         switch self {
@@ -59,6 +116,8 @@ enum GatewayClientError: LocalizedError {
             "The model session could not be configured."
         case .timeout:
             "The model session did not open in time."
+        case .notConnected:
+            "The model session is not connected."
         }
     }
 }
