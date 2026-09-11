@@ -8,6 +8,7 @@ final class ConversationController {
     private(set) var appSessionID: String?
     private(set) var model: String?
     private(set) var actionInFlight = false
+    private(set) var hasLastResponse = false
 
     private let sessionClient: SessionClient
     private let gatewayClient: GatewayClient
@@ -17,6 +18,7 @@ final class ConversationController {
     private var audioSettings: RealtimeSession.AudioSettings?
     private var captureTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
+    private var playbackWatchTask: Task<Void, Never>?
     private var didSendAudio = false
     /// Simulator/debug only. Set by `-preview-ready`; skips the live Gateway session.
     private var isLocalPreview = false
@@ -36,6 +38,7 @@ final class ConversationController {
     func connectIfNeeded() async {
         guard !isLocalPreview else { return }
         guard appSessionID == nil else { return }
+        if case .failed = state { return }
         await connect()
     }
 
@@ -101,6 +104,10 @@ final class ConversationController {
     }
 
     func disconnect() async {
+        playbackWatchTask?.cancel()
+        playbackWatchTask = nil
+        await audioController.stopPlayback(keepLastResponse: false)
+        hasLastResponse = false
         await stopCaptureTasks()
         await gatewayClient.disconnect()
         appSessionID = nil
@@ -119,13 +126,52 @@ final class ConversationController {
             await startTalk()
         case .recording:
             await finishTalk()
-        case .connecting, .waiting, .playing:
+        case .playing:
+            await reply()
+        case .connecting, .waiting:
             break
         }
     }
 
+    func replay() async {
+        guard state == .ready || state == .playing, !actionInFlight else { return }
+        if !hasLastResponse {
+            guard await audioController.hasLastResponse else { return }
+        }
+        actionInFlight = true
+        do {
+            try await audioController.replayLastResponse()
+            hasLastResponse = true
+            state = .playing
+            actionInFlight = false
+            watchPlaybackUntilFinished()
+        } catch {
+            actionInFlight = false
+            state = .failed(Self.message(for: error))
+        }
+    }
+
+    func endSession() async {
+        guard state.showsEndAction, !actionInFlight else { return }
+        actionInFlight = true
+        defer { actionInFlight = false }
+        playbackWatchTask?.cancel()
+        playbackWatchTask = nil
+        await audioController.stopPlayback(keepLastResponse: false)
+        hasLastResponse = false
+        await stopCaptureTasks()
+        await gatewayClient.disconnect()
+        appSessionID = nil
+        model = nil
+        audioSettings = nil
+        state = .failed(ConversationState.sessionEndedMessage)
+    }
+
     private func startTalk() async {
-        guard state == .ready, let audioSettings, !actionInFlight else { return }
+        guard state == .ready || state == .playing, let audioSettings, !actionInFlight else { return }
+        playbackWatchTask?.cancel()
+        playbackWatchTask = nil
+        await audioController.stopPlayback(keepLastResponse: true)
         didSendAudio = false
         do {
             let chunks = try await audioController.startCapture(
@@ -155,6 +201,11 @@ final class ConversationController {
         }
     }
 
+    private func reply() async {
+        guard state == .playing, !actionInFlight else { return }
+        await startTalk()
+    }
+
     private func finishTalk() async {
         guard state == .recording, !actionInFlight else { return }
         actionInFlight = true
@@ -174,6 +225,7 @@ final class ConversationController {
             if isLocalPreview {
                 await audioController.deleteTurnFile()
                 state = .waiting
+                playPreviewResponse(audioSettings)
                 return
             }
             try await gatewayClient.commitTurn()
@@ -199,20 +251,44 @@ final class ConversationController {
         case .audioCommitted:
             DiagnosticLog.audio.info("Gateway accepted the turn")
             await audioController.deleteTurnFile()
+        case .audioReceived(let data):
+            guard state == .waiting || state == .playing, let audioSettings else { return }
+            do {
+                try await audioController.enqueuePlayback(
+                    data,
+                    sampleRate: audioSettings.sampleRate,
+                    channels: audioSettings.channels
+                )
+                hasLastResponse = true
+                if state == .waiting {
+                    state = .playing
+                }
+            } catch {
+                state = .failed(Self.message(for: error))
+            }
         case .responseDone:
+            do {
+                try await audioController.markPlaybackInputFinished()
+            } catch {
+                state = .failed(Self.message(for: error))
+                return
+            }
             if state == .waiting {
+                await audioController.deleteTurnFile()
                 state = .ready
+            } else if state == .playing {
+                watchPlaybackUntilFinished()
             }
         case .error(let message):
-            if state == .recording || state == .waiting {
-                await stopCaptureTasks()
+            if state == .recording || state == .waiting || state == .playing {
+                await interruptAudio()
                 state = .failed(message)
             }
         case .connectionClosed(let message):
-            if state == .recording || state == .waiting || state == .ready {
+            if state == .recording || state == .waiting || state == .playing || state == .ready {
                 appSessionID = nil
                 audioSettings = nil
-                await stopCaptureTasks()
+                await interruptAudio()
                 state = .failed(message)
             }
         case .ignored:
@@ -220,9 +296,60 @@ final class ConversationController {
         }
     }
 
+    private func playPreviewResponse(_ audioSettings: RealtimeSession.AudioSettings?) {
+        guard let audioSettings else {
+            state = .ready
+            return
+        }
+        playbackWatchTask?.cancel()
+        playbackWatchTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .milliseconds(700))
+            guard !Task.isCancelled, self.state == .waiting else { return }
+            do {
+                self.state = .playing
+                let tone = AudioFormatConverter.previewTonePCM16(
+                    sampleRate: audioSettings.sampleRate,
+                    channels: max(audioSettings.channels, 1)
+                )
+                try await self.audioController.enqueuePlayback(
+                    tone,
+                    sampleRate: audioSettings.sampleRate,
+                    channels: max(audioSettings.channels, 1)
+                )
+                self.hasLastResponse = true
+                try await self.audioController.markPlaybackInputFinished()
+                await self.audioController.waitUntilPlaybackFinished()
+                guard !Task.isCancelled, self.state == .playing else { return }
+                await self.audioController.deleteTurnFile()
+                self.state = .ready
+            } catch {
+                self.state = .failed(Self.message(for: error))
+            }
+        }
+    }
+
+    private func watchPlaybackUntilFinished() {
+        playbackWatchTask?.cancel()
+        playbackWatchTask = Task { [weak self] in
+            guard let self else { return }
+            await self.audioController.waitUntilPlaybackFinished()
+            guard !Task.isCancelled, self.state == .playing else { return }
+            await self.audioController.deleteTurnFile()
+            self.state = .ready
+        }
+    }
+
+    private func interruptAudio() async {
+        playbackWatchTask?.cancel()
+        playbackWatchTask = nil
+        await audioController.stopPlayback(keepLastResponse: true)
+        await stopCaptureTasks()
+    }
+
     private func handleCaptureFailure(_ error: Error) async {
         guard state == .recording else { return }
-        await stopCaptureTasks()
+        await interruptAudio()
         state = .failed(Self.message(for: error))
     }
 

@@ -3,13 +3,33 @@ import Foundation
 
 actor AudioController {
     private let engine = AVAudioEngine()
+    private let playerNode = AVAudioPlayerNode()
     private var writer: TurnWriter?
     private var turnFileURL: URL?
     private var tapInstalled = false
     private var isCapturing = false
     private var silenceTask: Task<Void, Never>?
+    private var playerAttached = false
+    private var playbackFormat: AVAudioFormat?
+    private var lastResponse = Data()
+    private var preroll = Data()
+    private var pendingPlaybackBuffers = 0
+    private var playbackInputFinished = false
+    private var playbackStarted = false
+    private var isPlaybackActive = false
+    private var playbackWaiters: [CheckedContinuation<Void, Never>] = []
+
+    /// About 80 ms of 24 kHz mono PCM16, enough to start the player without waiting for the full reply.
+    private let playbackStartThresholdBytes = 3_840
+
+    var hasLastResponse: Bool {
+        !lastResponse.isEmpty
+    }
 
     func startCapture(sampleRate: Int, channels: Int) async throws -> AsyncThrowingStream<Data, Error> {
+        if isPlaybackActive {
+            stopPlayback(keepLastResponse: true)
+        }
         if isCapturing {
             _ = await stopCapture()
         }
@@ -86,6 +106,83 @@ actor AudioController {
         self.turnFileURL = nil
     }
 
+    func enqueuePlayback(_ pcm16: Data, sampleRate: Int, channels: Int) async throws {
+        guard !pcm16.isEmpty else { return }
+        if !isPlaybackActive {
+            try await beginPlaybackSession(sampleRate: sampleRate, channels: channels)
+        }
+        lastResponse.append(pcm16)
+        if playbackStarted {
+            try schedulePlayback(pcm16)
+            return
+        }
+
+        preroll.append(pcm16)
+        if preroll.count >= playbackStartThresholdBytes || playbackInputFinished {
+            try startPlayer(with: preroll)
+            preroll = Data()
+        }
+    }
+
+    func markPlaybackInputFinished() async throws {
+        playbackInputFinished = true
+        if !isPlaybackActive {
+            finishPlayback()
+            return
+        }
+        if !playbackStarted {
+            if preroll.isEmpty {
+                finishPlayback()
+                return
+            }
+            try startPlayer(with: preroll)
+            preroll = Data()
+        }
+        if playbackStarted && pendingPlaybackBuffers == 0 {
+            finishPlayback()
+        }
+    }
+
+    func waitUntilPlaybackFinished() async {
+        if !isPlaybackActive {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            playbackWaiters.append(continuation)
+        }
+    }
+
+    func replayLastResponse() async throws {
+        let pcm16 = lastResponse
+        guard !pcm16.isEmpty else {
+            throw AudioControllerError.noResponseToReplay
+        }
+        let sampleRate = Int(playbackFormat?.sampleRate ?? 24_000)
+        let channels = Int(playbackFormat?.channelCount ?? 1)
+        stopPlayback(keepLastResponse: true)
+        try await beginPlaybackSession(sampleRate: sampleRate, channels: max(channels, 1))
+        lastResponse = pcm16
+        playbackInputFinished = true
+        try startPlayer(with: pcm16)
+    }
+
+    func stopPlayback(keepLastResponse: Bool = true) {
+        playerNode.stop()
+        playerNode.reset()
+        pendingPlaybackBuffers = 0
+        playbackInputFinished = true
+        playbackStarted = false
+        preroll = Data()
+        if engine.isRunning && !isCapturing {
+            engine.stop()
+        }
+        if !keepLastResponse {
+            lastResponse = Data()
+            playbackFormat = nil
+        }
+        finishPlayback()
+    }
+
     /// Simulator-only fallback that emits silent PCM so Talk/Done still complete a turn.
     private func startSilenceCapture(sampleRate: Int, channels: Int) throws -> AsyncThrowingStream<Data, Error> {
         let url = FileManager.default.temporaryDirectory
@@ -110,6 +207,98 @@ actor AudioController {
         isCapturing = true
         DiagnosticLog.audio.info("Started silence capture at \(sampleRate, privacy: .public) Hz")
         return stream.stream
+    }
+
+    private func beginPlaybackSession(sampleRate: Int, channels: Int) async throws {
+        try await MainActor.run {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [])
+            try session.setActive(true)
+        }
+
+        playbackFormat = try AudioFormatConverter.makePlaybackFormat(
+            sampleRate: Double(sampleRate),
+            channels: AVAudioChannelCount(max(channels, 1))
+        )
+        lastResponse = Data()
+        preroll = Data()
+        pendingPlaybackBuffers = 0
+        playbackInputFinished = false
+        playbackStarted = false
+        isPlaybackActive = true
+
+        if !playerAttached {
+            engine.attach(playerNode)
+            playerAttached = true
+        }
+        engine.connect(playerNode, to: engine.mainMixerNode, format: playbackFormat)
+    }
+
+    private func startPlayer(with pcm16: Data) throws {
+        guard playbackFormat != nil else {
+            throw AudioControllerError.playbackUnavailable
+        }
+        if !engine.isRunning {
+            engine.prepare()
+            try engine.start()
+        }
+        try schedulePlayback(pcm16)
+        if !playerNode.isPlaying {
+            playerNode.play()
+        }
+        playbackStarted = true
+        DiagnosticLog.audio.info("Started response playback")
+    }
+
+    private func schedulePlayback(_ pcm16: Data) throws {
+        guard let playbackFormat else {
+            throw AudioControllerError.playbackUnavailable
+        }
+        let bytesPerFrame = MemoryLayout<Int16>.size * Int(max(playbackFormat.channelCount, 1))
+        let chunkSize = max(bytesPerFrame * 4_800, bytesPerFrame)
+        var offset = 0
+        while offset < pcm16.count {
+            let end = min(offset + chunkSize, pcm16.count)
+            let alignedEnd = end - ((end - offset) % bytesPerFrame)
+            defer { offset = alignedEnd }
+            guard alignedEnd > offset else { continue }
+            let buffer = try AudioFormatConverter.playbackBuffer(
+                fromPcm16: Data(pcm16[offset..<alignedEnd]),
+                format: playbackFormat
+            )
+            pendingPlaybackBuffers += 1
+            playerNode.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+                Task {
+                    await self?.bufferDidFinishPlaying()
+                }
+            }
+        }
+    }
+
+    private func bufferDidFinishPlaying() {
+        guard pendingPlaybackBuffers > 0 else { return }
+        pendingPlaybackBuffers -= 1
+        if playbackInputFinished && pendingPlaybackBuffers == 0 {
+            finishPlayback()
+        }
+    }
+
+    private func finishPlayback() {
+        isPlaybackActive = false
+        playbackStarted = false
+        preroll = Data()
+        pendingPlaybackBuffers = 0
+        if playerNode.isPlaying {
+            playerNode.stop()
+        }
+        if engine.isRunning && !isCapturing {
+            engine.stop()
+        }
+        let waiters = playbackWaiters
+        playbackWaiters = []
+        for waiter in waiters {
+            waiter.resume()
+        }
     }
 
     private func cleanupCapture(finishStream: Bool) async {
@@ -139,6 +328,8 @@ actor AudioController {
 enum AudioControllerError: LocalizedError {
     case microphoneDenied
     case unavailableInput
+    case playbackUnavailable
+    case noResponseToReplay
 
     var errorDescription: String? {
         switch self {
@@ -146,6 +337,10 @@ enum AudioControllerError: LocalizedError {
             "Microphone access is required to talk."
         case .unavailableInput:
             "The watch microphone is not available."
+        case .playbackUnavailable:
+            "The watch speaker could not start playback."
+        case .noResponseToReplay:
+            "There is no reply to replay yet."
         }
     }
 }

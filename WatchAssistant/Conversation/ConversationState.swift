@@ -8,6 +8,8 @@ enum ConversationState: Equatable, Sendable {
     case playing
     case failed(String)
 
+    static let sessionEndedMessage = "Session ended. Tap Retry to connect."
+
     var title: String {
         switch self {
         case .connecting: "Connecting"
@@ -15,6 +17,7 @@ enum ConversationState: Equatable, Sendable {
         case .recording: "Listening"
         case .waiting: "Thinking"
         case .playing: "Speaking"
+        case .failed(let message) where message == Self.sessionEndedMessage: "Ended"
         case .failed: "Connection failed"
         }
     }
@@ -58,6 +61,20 @@ enum ConversationState: Equatable, Sendable {
         case .playing: "Reply"
         case .failed: "Retry"
         case .connecting, .waiting: nil
+        }
+    }
+
+    var showsEndAction: Bool {
+        switch self {
+        case .ready, .recording, .waiting, .playing: true
+        case .connecting, .failed: false
+        }
+    }
+
+    var showsReplayAction: Bool {
+        switch self {
+        case .ready, .playing: true
+        case .connecting, .recording, .waiting, .failed: false
         }
     }
 }
