@@ -1,6 +1,6 @@
 # Watch Assistant
 
-A watchOS app for turn-based voice conversations with an OpenAI audio model through Vercel AI Gateway. The watch stores a personal credential in Keychain, requests a short-lived session token from a Vercel Function, and streams microphone audio over an authenticated WebSocket. **Talk** starts a turn; **Done** commits it. The reply plays through the speaker.
+A watchOS app for turn-based voice conversations with an OpenAI audio model through Vercel AI Gateway. The watch stores a personal credential in Keychain, requests a short-lived session token from a Vercel Function, and streams microphone audio over an authenticated WebSocket. **Talk** starts a turn; **Done** commits it.
 
 Permanent provider keys stay on the server. The watch never embeds `AI_GATEWAY_API_KEY`.
 
@@ -51,7 +51,7 @@ Set a budget on the AI Gateway API key in the Vercel dashboard. Budget controls 
 
 The credential is stored as a Keychain generic password with `AfterFirstUnlockThisDeviceOnly` accessibility.
 
-Grant microphone access the first time you tap **Talk**. The watch converts microphone audio to 24 kHz mono PCM16 and streams it to the model. The spoken reply plays through the watch speaker with the microphone off. **Reply** stops playback and starts the next turn, **Replay** repeats the last reply, and **End** closes the session.
+Grant microphone access the first time you tap **Talk**. The watch converts microphone audio to 24 kHz mono PCM16 and streams it to the model.
 
 The repository verifies the parts that do not require external credentials with:
 
