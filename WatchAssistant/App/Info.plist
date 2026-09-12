@@ -18,6 +18,8 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Watch Assistant records your voice so the assistant can hear a spoken turn.</string>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKWatchOnly</key>

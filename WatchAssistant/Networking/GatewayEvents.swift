@@ -42,3 +42,56 @@ struct GatewaySessionUpdate: Encodable, Sendable {
     }
 }
 
+struct GatewayInputAudioAppend: Encodable, Sendable {
+    let type = "input-audio-append"
+    let audio: String
+}
+
+struct GatewayInputAudioCommit: Encodable, Sendable {
+    let type = "input-audio-commit"
+}
+
+struct GatewayResponseCreate: Encodable, Sendable {
+    let type = "response-create"
+}
+
+enum GatewayServerEvent: Equatable, Sendable {
+    case audioCommitted
+    case responseDone
+    case error(String)
+    case connectionClosed(String)
+    case ignored
+
+    static func parse(text: String) -> GatewayServerEvent {
+        guard let data = text.data(using: .utf8) else { return .ignored }
+        return parse(data: data)
+    }
+
+    static func parse(data: Data) -> GatewayServerEvent {
+        guard let raw = try? JSONDecoder().decode(Raw.self, from: data) else {
+            return .ignored
+        }
+
+        switch raw.type {
+        case "audio-committed", "input_audio_buffer.committed":
+            return .audioCommitted
+        case "response-done", "response.done":
+            return .responseDone
+        case "error":
+            let message = raw.error?.message ?? raw.message ?? "The model session failed."
+            return .error(message)
+        default:
+            return .ignored
+        }
+    }
+
+    private struct Raw: Decodable {
+        struct NestedError: Decodable {
+            let message: String?
+        }
+
+        let type: String
+        let message: String?
+        let error: NestedError?
+    }
+}

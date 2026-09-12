@@ -6,5 +6,9 @@ enum DiagnosticLog {
         subsystem: Bundle.main.bundleIdentifier ?? "WatchAssistant",
         category: "Connection"
     )
-}
 
+    static let audio = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "WatchAssistant",
+        category: "Audio"
+    )
+}
