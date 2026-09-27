@@ -7,13 +7,15 @@ struct ConversationView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 8) {
+            VStack(spacing: 4) {
                 Image(systemName: controller.state.symbolName)
                     .font(.system(size: 34))
                     .foregroundStyle(controller.state.tint)
                     .symbolEffect(
                         .pulse,
-                        isActive: controller.state == .connecting || controller.state == .recording
+                        isActive: controller.state == .connecting
+                            || controller.state == .recording
+                            || controller.state == .playing
                     )
 
                 Text(controller.state.title)
@@ -35,6 +37,27 @@ struct ConversationView: View {
                     .accessibilityIdentifier("primaryAction")
                 } else if controller.actionInFlight {
                     ProgressView()
+                }
+
+                if (controller.state.showsReplayAction && controller.hasLastResponse)
+                    || controller.state.showsEndAction {
+                    HStack(spacing: 8) {
+                        if controller.state.showsReplayAction && controller.hasLastResponse {
+                            Button("Replay") {
+                                Task { await controller.replay() }
+                            }
+                            .disabled(controller.actionInFlight)
+                            .accessibilityIdentifier("replayAction")
+                        }
+                        if controller.state.showsEndAction {
+                            Button("End") {
+                                Task { await controller.endSession() }
+                            }
+                            .disabled(controller.actionInFlight)
+                            .accessibilityIdentifier("endAction")
+                        }
+                    }
+                    .font(.caption2)
                 }
 
                 Button("Settings") {

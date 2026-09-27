@@ -9,7 +9,7 @@ Pass these after the bundle identifier with `simctl launch`, or in the Xcode sch
 | Argument | What it does |
 | --- | --- |
 | `-preview-ready` | Skip the Vercel session and Gateway WebSocket. Puts the conversation screen in **Ready** with a fake session so **Talk** is tappable without credentials. |
-| `-auto-talk` | Requires `-preview-ready`. After a short delay, invokes the same Talk then Done actions as the primary button. Used to screenshot Listening and Thinking. |
+| `-auto-talk` | Requires `-preview-ready`. After a short delay, invokes the same Talk then Done actions as the primary button. Used to screenshot Listening, Thinking, and Speaking. After Done, preview playback plays a local tone through `AVAudioPlayerNode` so Reply, Replay, and End can be exercised without AI Gateway. |
 
 Example:
 
@@ -28,7 +28,7 @@ xcrun simctl privacy booted grant microphone com.philipziolkowski.WatchAssistant
 
 - `WatchAssistant/UI/ConversationView.swift` — reads the launch arguments in `.task`.
 - `WatchAssistant/Conversation/ConversationController.swift` — `preparePreviewReady()` and `isLocalPreview` skip Gateway send/commit.
-- `WatchAssistant/Audio/AudioController.swift` — if the Simulator reports a 0 Hz mic format, capture falls back to silent PCM so Talk/Done still complete a turn. A physical watch uses the real microphone tap.
+- `WatchAssistant/Audio/AudioController.swift` — if the Simulator reports a 0 Hz mic format, capture falls back to silent PCM so Talk/Done still complete a turn. A physical watch uses the real microphone tap. Response audio is queued on `AVAudioPlayerNode`; preview Done plays a generated tone so Speaking can be screenshot without a live session.
 
 ## What not to do
 

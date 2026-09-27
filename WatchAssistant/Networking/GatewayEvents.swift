@@ -57,6 +57,7 @@ struct GatewayResponseCreate: Encodable, Sendable {
 
 enum GatewayServerEvent: Equatable, Sendable {
     case audioCommitted
+    case audioReceived(Data)
     case responseDone
     case error(String)
     case connectionClosed(String)
@@ -75,6 +76,17 @@ enum GatewayServerEvent: Equatable, Sendable {
         switch raw.type {
         case "audio-committed", "input_audio_buffer.committed":
             return .audioCommitted
+        case "audio-delta",
+             "response.audio.delta",
+             "response.output_audio.delta",
+             "response.output_audio_delta":
+            guard let payload = raw.delta ?? raw.audio,
+                  let pcm = Data(base64Encoded: payload),
+                  !pcm.isEmpty
+            else {
+                return .ignored
+            }
+            return .audioReceived(pcm)
         case "response-done", "response.done":
             return .responseDone
         case "error":
@@ -93,5 +105,7 @@ enum GatewayServerEvent: Equatable, Sendable {
         let type: String
         let message: String?
         let error: NestedError?
+        let delta: String?
+        let audio: String?
     }
 }

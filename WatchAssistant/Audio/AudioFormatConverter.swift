@@ -56,6 +56,69 @@ enum AudioFormatConverter {
         return int16Data(from: output)
     }
 
+    static func makePlaybackFormat(sampleRate: Double, channels: AVAudioChannelCount) throws -> AVAudioFormat {
+        guard let format = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: sampleRate,
+            channels: channels,
+            interleaved: false
+        ) else {
+            throw AudioConversionError.invalidFormat
+        }
+        return format
+    }
+
+    static func playbackBuffer(fromPcm16 data: Data, format: AVAudioFormat) throws -> AVAudioPCMBuffer {
+        let channels = Int(max(format.channelCount, 1))
+        let frameCount = data.count / (MemoryLayout<Int16>.size * channels)
+        guard frameCount > 0 else {
+            throw AudioConversionError.allocationFailed
+        }
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: format,
+            frameCapacity: AVAudioFrameCount(frameCount)
+        ) else {
+            throw AudioConversionError.allocationFailed
+        }
+        buffer.frameLength = AVAudioFrameCount(frameCount)
+
+        data.withUnsafeBytes { raw in
+            let source = raw.bindMemory(to: Int16.self)
+            for channel in 0..<channels {
+                guard let destination = buffer.floatChannelData?[channel] else { continue }
+                var frame = 0
+                while frame < frameCount {
+                    destination[frame] = Float(source[frame * channels + channel]) / Float(Int16.max)
+                    frame += 1
+                }
+            }
+        }
+        return buffer
+    }
+
+    static func previewTonePCM16(
+        sampleRate: Int,
+        channels: Int,
+        seconds: Double = 2,
+        frequency: Double = 440
+    ) -> Data {
+        let frameCount = max(Int(Double(sampleRate) * seconds), 1)
+        let channelCount = max(channels, 1)
+        var data = Data(count: frameCount * channelCount * MemoryLayout<Int16>.size)
+        data.withUnsafeMutableBytes { raw in
+            guard let samples = raw.bindMemory(to: Int16.self).baseAddress else { return }
+            let amplitude = 0.28 * Double(Int16.max)
+            for frame in 0..<frameCount {
+                let value = sin(2.0 * Double.pi * frequency * Double(frame) / Double(sampleRate))
+                let sample = Int16((value * amplitude).rounded())
+                for channel in 0..<channelCount {
+                    samples[frame * channelCount + channel] = sample
+                }
+            }
+        }
+        return data
+    }
+
     static func int16Data(from buffer: AVAudioPCMBuffer) -> Data {
         let frameLength = Int(buffer.frameLength)
         let channels = Int(buffer.format.channelCount)
