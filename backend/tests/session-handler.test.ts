@@ -62,6 +62,67 @@ describe('POST /api/realtime/session', () => {
     expect(getToken).toHaveBeenCalledWith('openai/gpt-realtime-mini', 60);
   });
 
+  it('reuses the application session id when renewing a token', async () => {
+    const getToken = vi.fn().mockResolvedValue({
+      token: 'vcst_next',
+      url: 'wss://ai-gateway.vercel.sh/v1/realtime-model?ai-model-id=test',
+      expiresAt: 1_800_000_060,
+    });
+    const handler = createSessionHandler({
+      env: configuredEnvironment,
+      getToken,
+      limiter: new FixedWindowRateLimiter(5, 60_000),
+      randomUUID: () => 'new-session-id',
+    });
+
+    const response = await handler(
+      new Request('https://service.test/api/realtime/session', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer watch-secret',
+          'content-type': 'application/json',
+          'x-forwarded-for': '192.0.2.10',
+        },
+        body: JSON.stringify({
+          appSessionId: '11111111-2222-4333-8444-555555555555',
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      appSessionId: '11111111-2222-4333-8444-555555555555',
+      token: 'vcst_next',
+    });
+    expect(getToken).toHaveBeenCalledWith('openai/gpt-realtime-mini', 60);
+  });
+
+  it('starts a new application session when the renewal id is invalid', async () => {
+    const handler = createSessionHandler({
+      env: configuredEnvironment,
+      getToken: vi.fn().mockResolvedValue({ token: 'vcst_test', url: 'wss://test' }),
+      limiter: new FixedWindowRateLimiter(5, 60_000),
+      randomUUID: () => 'session-id',
+    });
+
+    const response = await handler(
+      new Request('https://service.test/api/realtime/session', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer watch-secret',
+          'content-type': 'application/json',
+          'x-forwarded-for': '192.0.2.11',
+        },
+        body: JSON.stringify({ appSessionId: 'not-a-session' }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      appSessionId: 'session-id',
+    });
+  });
+
   it('rejects an invalid personal credential', async () => {
     const handler = createSessionHandler({
       env: configuredEnvironment,

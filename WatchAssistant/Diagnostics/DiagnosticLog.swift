@@ -11,4 +11,9 @@ enum DiagnosticLog {
         subsystem: Bundle.main.bundleIdentifier ?? "WatchAssistant",
         category: "Audio"
     )
+
+    static let transcript = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "WatchAssistant",
+        category: "Transcript"
+    )
 }

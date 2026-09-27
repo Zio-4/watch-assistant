@@ -22,6 +22,39 @@ type Dependencies = {
 
 const defaultLimiter = new FixedWindowRateLimiter(5, 60_000);
 
+const applicationSessionIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function renewalSessionId(request: Request): Promise<string | undefined> {
+  const contentType = request.headers.get('content-type') ?? '';
+  if (!contentType.toLowerCase().includes('application/json')) {
+    return undefined;
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return undefined;
+  }
+
+  if (body === null || typeof body !== 'object') {
+    return undefined;
+  }
+
+  const value = (body as { appSessionId?: unknown }).appSessionId;
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!applicationSessionIdPattern.test(trimmed)) {
+    return undefined;
+  }
+
+  return trimmed;
+}
+
 function json(body: unknown, status: number, headers?: HeadersInit): Response {
   return Response.json(body, {
     status,
@@ -78,7 +111,9 @@ export function createSessionHandler(dependencies: Dependencies = {}) {
     }
 
     const model = env.REALTIME_MODEL ?? 'openai/gpt-realtime-mini';
-    const appSessionId = randomUUID();
+    // A renewal POST echoes the watch's application session id so a new
+    // client secret does not start a new conversation. The first POST omits it.
+    const appSessionId = (await renewalSessionId(request)) ?? randomUUID();
 
     try {
       const session = await getToken(model, 60);
