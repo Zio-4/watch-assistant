@@ -9,6 +9,7 @@ final class ConversationController {
     private(set) var model: String?
     private(set) var actionInFlight = false
     private(set) var hasLastResponse = false
+    private(set) var transcripts: [ConversationTranscript] = []
 
     private let sessionClient: SessionClient
     private let gatewayClient: GatewayClient
@@ -19,6 +20,11 @@ final class ConversationController {
     private var captureTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var playbackWatchTask: Task<Void, Never>?
+    private var renewalTask: Task<Void, Never>?
+    private var renewalInFlight = false
+    private var renewalStopped = false
+    private var responseOpen = false
+    private var isStartingReply = false
     private var didSendAudio = false
     /// Simulator/debug only. Set by `-preview-ready`; skips the live Gateway session.
     private var isLocalPreview = false
@@ -75,6 +81,11 @@ final class ConversationController {
         repeat {
             reconnectAfterCurrent = false
             actionInFlight = true
+            renewalStopped = false
+            renewalTask?.cancel()
+            renewalTask = nil
+            transcripts = []
+            responseOpen = false
             state = .connecting
 
             do {
@@ -90,6 +101,7 @@ final class ConversationController {
                 audioSettings = session.audio
                 listenToGateway()
                 state = .ready
+                scheduleTokenRenewal(at: Self.expirationDate(from: session.expiresAt))
                 DiagnosticLog.connection.info("Connected app session \(session.appSessionId, privacy: .public)")
             } catch {
                 appSessionID = nil
@@ -104,10 +116,15 @@ final class ConversationController {
     }
 
     func disconnect() async {
+        renewalStopped = true
+        renewalTask?.cancel()
+        renewalTask = nil
         playbackWatchTask?.cancel()
         playbackWatchTask = nil
         await audioController.stopPlayback(keepLastResponse: false)
         hasLastResponse = false
+        transcripts = []
+        responseOpen = false
         await stopCaptureTasks()
         await gatewayClient.disconnect()
         appSessionID = nil
@@ -155,10 +172,15 @@ final class ConversationController {
         guard state.showsEndAction, !actionInFlight else { return }
         actionInFlight = true
         defer { actionInFlight = false }
+        renewalStopped = true
+        renewalTask?.cancel()
+        renewalTask = nil
         playbackWatchTask?.cancel()
         playbackWatchTask = nil
         await audioController.stopPlayback(keepLastResponse: false)
         hasLastResponse = false
+        transcripts = []
+        responseOpen = false
         await stopCaptureTasks()
         await gatewayClient.disconnect()
         appSessionID = nil
@@ -169,15 +191,34 @@ final class ConversationController {
 
     private func startTalk() async {
         guard state == .ready || state == .playing, let audioSettings, !actionInFlight else { return }
+        actionInFlight = true
+        isStartingReply = true
+        defer {
+            isStartingReply = false
+            actionInFlight = false
+        }
+        let shouldCancelResponse = state == .playing && responseOpen && !isLocalPreview
         playbackWatchTask?.cancel()
         playbackWatchTask = nil
         await audioController.stopPlayback(keepLastResponse: true)
+        if !isLocalPreview {
+            if shouldCancelResponse {
+                await gatewayClient.cancelActiveResponse()
+                responseOpen = false
+            }
+            await gatewayClient.clearInputBuffer()
+        }
         didSendAudio = false
+        if case .failed = state { return }
         do {
             let chunks = try await audioController.startCapture(
                 sampleRate: audioSettings.sampleRate,
                 channels: audioSettings.channels
             )
+            if case .failed = state {
+                _ = await audioController.stopCapture()
+                return
+            }
             state = .recording
             captureTask = Task { [weak self] in
                 guard let self else { return }
@@ -229,6 +270,7 @@ final class ConversationController {
                 return
             }
             try await gatewayClient.commitTurn()
+            responseOpen = true
             state = .waiting
             DiagnosticLog.audio.info("Committed spoken turn")
         } catch {
@@ -251,7 +293,8 @@ final class ConversationController {
         case .audioCommitted:
             DiagnosticLog.audio.info("Gateway accepted the turn")
             await audioController.deleteTurnFile()
-        case .audioReceived(let data):
+        case .audioReceived(let data, _):
+            guard !isStartingReply else { return }
             guard state == .waiting || state == .playing, let audioSettings else { return }
             do {
                 try await audioController.enqueuePlayback(
@@ -266,7 +309,15 @@ final class ConversationController {
             } catch {
                 state = .failed(Self.message(for: error))
             }
+        case .inputTranscript(let itemID, let text):
+            storeUserTranscript(itemID: itemID, text: text)
+        case .assistantTranscriptDelta(let itemID, let delta):
+            storeAssistantDelta(itemID: itemID, delta: delta)
+        case .assistantTranscriptDone(let itemID, let text):
+            storeAssistantDone(itemID: itemID, text: text)
         case .responseDone:
+            responseOpen = false
+            if isStartingReply { return }
             do {
                 try await audioController.markPlaybackInputFinished()
             } catch {
@@ -281,11 +332,13 @@ final class ConversationController {
             }
         case .error(let message):
             if state == .recording || state == .waiting || state == .playing {
+                responseOpen = false
                 await interruptAudio()
                 state = .failed(message)
             }
         case .connectionClosed(let message):
             if state == .recording || state == .waiting || state == .playing || state == .ready {
+                responseOpen = false
                 appSessionID = nil
                 audioSettings = nil
                 await interruptAudio()
@@ -307,6 +360,21 @@ final class ConversationController {
             try? await Task.sleep(for: .milliseconds(700))
             guard !Task.isCancelled, self.state == .waiting else { return }
             do {
+                let turn = self.transcripts.filter { $0.role == .user }.count + 1
+                self.transcripts.append(
+                    ConversationTranscript(
+                        id: "preview-user-\(turn)",
+                        role: .user,
+                        text: "Preview question \(turn)"
+                    )
+                )
+                self.transcripts.append(
+                    ConversationTranscript(
+                        id: "preview-assistant-\(turn)",
+                        role: .assistant,
+                        text: "Preview answer \(turn)"
+                    )
+                )
                 self.state = .playing
                 let tone = AudioFormatConverter.previewTonePCM16(
                     sampleRate: audioSettings.sampleRate,
@@ -360,6 +428,161 @@ final class ConversationController {
         eventTask = nil
         _ = await audioController.stopCapture()
         await audioController.deleteTurnFile()
+    }
+
+    private func scheduleTokenRenewal(at expiresAt: Date) {
+        let remaining = expiresAt.timeIntervalSinceNow
+        let delay: TimeInterval = remaining > 20 ? remaining - 15 : max(remaining * 0.5, 10)
+        renewalTask?.cancel()
+        renewalTask = Task { [weak self] in
+            if delay > 0 {
+                try? await Task.sleep(for: .seconds(delay))
+            }
+            guard !Task.isCancelled else { return }
+            await self?.renewSessionToken()
+        }
+    }
+
+    private func renewSessionToken() async {
+        guard !renewalStopped, !isLocalPreview, let currentSessionID = appSessionID else { return }
+        if renewalInFlight { return }
+        if case .failed = state { return }
+
+        renewalInFlight = true
+        defer { renewalInFlight = false }
+
+        while state != .ready || actionInFlight {
+            if Task.isCancelled || renewalStopped || appSessionID == nil { return }
+            if case .failed = state { return }
+            try? await Task.sleep(for: .seconds(1))
+            if Task.isCancelled || renewalStopped { return }
+        }
+
+        actionInFlight = true
+        defer {
+            actionInFlight = false
+            if reconnectAfterCurrent {
+                reconnectAfterCurrent = false
+                Task { await self.connect() }
+            }
+        }
+
+        do {
+            let endpoint = try resolvedEndpoint(nil)
+            let credential = try resolvedCredential(nil)
+            let session = try await sessionClient.createSession(
+                endpoint: endpoint,
+                credential: credential,
+                appSessionId: currentSessionID
+            )
+            guard !Task.isCancelled, !renewalStopped, appSessionID == currentSessionID, state == .ready else {
+                return
+            }
+            try await gatewayClient.renewConnection(to: session, transcripts: transcripts)
+            guard !Task.isCancelled, !renewalStopped, appSessionID == currentSessionID, state == .ready else {
+                await gatewayClient.disconnect()
+                return
+            }
+            model = session.model
+            audioSettings = session.audio
+            // Drop the finished sleep task before arming the next one so this
+            // call does not cancel itself.
+            renewalTask = nil
+            scheduleTokenRenewal(at: Self.expirationDate(from: session.expiresAt))
+            DiagnosticLog.connection.info("Renewed the model session token")
+        } catch {
+            DiagnosticLog.connection.error(
+                "Token renewal failed: \(error.localizedDescription, privacy: .public)"
+            )
+            guard !renewalStopped, appSessionID == currentSessionID else { return }
+            if Self.shouldShowRenewalFailure(error) || !(await gatewayClient.isConnected) {
+                await failVisibleSession(Self.message(for: error))
+                return
+            }
+            renewalTask = nil
+            scheduleTokenRenewal(at: Date().addingTimeInterval(20))
+        }
+    }
+
+    private func failVisibleSession(_ message: String) async {
+        if case .failed = state { return }
+        responseOpen = false
+        renewalStopped = true
+        renewalTask?.cancel()
+        renewalTask = nil
+        appSessionID = nil
+        model = nil
+        audioSettings = nil
+        await interruptAudio()
+        await gatewayClient.disconnect()
+        state = .failed(message)
+    }
+
+    private static func shouldShowRenewalFailure(_ error: Error) -> Bool {
+        guard case .httpStatus(let code) = error as? SessionClientError else {
+            return false
+        }
+        return (400..<500).contains(code)
+    }
+
+    private var canStoreTranscript: Bool {
+        switch state {
+        case .ready, .recording, .waiting, .playing:
+            true
+        case .connecting, .failed:
+            false
+        }
+    }
+
+    private func storeUserTranscript(itemID: String, text: String) {
+        guard canStoreTranscript else { return }
+        upsertTranscript(id: "user-\(itemID)", role: .user, text: text, append: false)
+        DiagnosticLog.transcript.info("Stored user transcript")
+    }
+
+    private func storeAssistantDelta(itemID: String, delta: String) {
+        guard canStoreTranscript else { return }
+        upsertTranscript(id: "assistant-\(itemID)", role: .assistant, text: delta, append: true)
+    }
+
+    private func storeAssistantDone(itemID: String, text: String) {
+        guard canStoreTranscript else { return }
+        let id = "assistant-\(itemID)"
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if transcripts.contains(where: { $0.id == id }) {
+                DiagnosticLog.transcript.info("Stored assistant transcript")
+            }
+            return
+        }
+        upsertTranscript(id: id, role: .assistant, text: text, append: false)
+        DiagnosticLog.transcript.info("Stored assistant transcript")
+    }
+
+    private func upsertTranscript(
+        id: String,
+        role: ConversationTranscript.Role,
+        text: String,
+        append: Bool
+    ) {
+        if let index = transcripts.firstIndex(where: { $0.id == id }) {
+            if append {
+                transcripts[index].text += text
+            } else {
+                transcripts[index].text = text
+            }
+        } else {
+            transcripts.append(ConversationTranscript(id: id, role: role, text: text))
+        }
+    }
+
+    private static func expirationDate(from expiresAt: String) -> Date {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: expiresAt) {
+            return date
+        }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: expiresAt) ?? Date().addingTimeInterval(60)
     }
 
     private func resolvedEndpoint(_ endpoint: URL?) throws -> URL {

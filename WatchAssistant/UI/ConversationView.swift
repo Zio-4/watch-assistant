@@ -27,6 +27,16 @@ struct ConversationView: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
 
+                if let line = controller.transcripts.last(where: {
+                    !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                }) {
+                    Text(line.text)
+                        .font(.caption2)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .accessibilityIdentifier("latestTranscript")
+                }
+
                 if let actionTitle = controller.state.primaryActionTitle {
                     Button(actionTitle) {
                         Task { await controller.performPrimaryAction() }

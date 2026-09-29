@@ -29,6 +29,7 @@ xcrun simctl privacy booted grant microphone com.philipziolkowski.WatchAssistant
 - `WatchAssistant/UI/ConversationView.swift` — reads the launch arguments in `.task`.
 - `WatchAssistant/Conversation/ConversationController.swift` — `preparePreviewReady()` and `isLocalPreview` skip Gateway send/commit.
 - `WatchAssistant/Audio/AudioController.swift` — if the Simulator reports a 0 Hz mic format, capture falls back to silent PCM so Talk/Done still complete a turn. A physical watch uses the real microphone tap. Response audio is queued on `AVAudioPlayerNode`; preview Done plays a generated tone so Speaking can be screenshot without a live session.
+- `WatchAssistant/Conversation/ConversationController.swift` — after the preview tone starts, the controller stores sample user and assistant lines in memory so the latest line can show on screen. Preview mode does not renew a session token. A live session keeps the same WebSocket across turns, stores real transcripts in memory, and requests a new token for that same application session shortly before the current token expires.
 
 ## What not to do
 

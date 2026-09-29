@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { credentialsMatch, readBearerCredential } from './auth.js';
 import { createGatewayToken, type GatewayToken } from './gateway.js';
 import { FixedWindowRateLimiter, requestClientKey } from './rate-limit.js';
@@ -21,6 +22,74 @@ type Dependencies = {
 };
 
 const defaultLimiter = new FixedWindowRateLimiter(5, 60_000);
+
+type RenewalRequest =
+  | { kind: 'new' }
+  | { kind: 'renew'; appSessionId: string }
+  | { kind: 'invalid' };
+
+function issueAppSessionId(id: string, secret: string): string {
+  return `${id}.${appSessionSignature(id, secret)}`;
+}
+
+function appSessionSignature(id: string, secret: string): string {
+  return createHmac('sha256', secret).update(id).digest('base64url');
+}
+
+function verifiedAppSessionId(presented: string, secret: string): string | undefined {
+  const separator = presented.lastIndexOf('.');
+  if (separator <= 0 || separator === presented.length - 1) {
+    return undefined;
+  }
+
+  const id = presented.slice(0, separator);
+  const presentedMac = presented.slice(separator + 1);
+  const expectedMac = appSessionSignature(id, secret);
+  const presentedBytes = Buffer.from(presentedMac);
+  const expectedBytes = Buffer.from(expectedMac);
+  if (presentedBytes.length !== expectedBytes.length) {
+    return undefined;
+  }
+  if (!timingSafeEqual(presentedBytes, expectedBytes)) {
+    return undefined;
+  }
+
+  return presented;
+}
+
+async function readRenewalRequest(request: Request): Promise<RenewalRequest> {
+  const contentType = request.headers.get('content-type') ?? '';
+  if (!contentType.toLowerCase().includes('application/json')) {
+    return { kind: 'new' };
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return { kind: 'invalid' };
+  }
+
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return { kind: 'invalid' };
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(body, 'appSessionId')) {
+    return { kind: 'new' };
+  }
+
+  const value = (body as { appSessionId?: unknown }).appSessionId;
+  if (typeof value !== 'string') {
+    return { kind: 'invalid' };
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { kind: 'invalid' };
+  }
+
+  return { kind: 'renew', appSessionId: trimmed };
+}
 
 function json(body: unknown, status: number, headers?: HeadersInit): Response {
   return Response.json(body, {
@@ -54,7 +123,8 @@ export function createSessionHandler(dependencies: Dependencies = {}) {
       return json({ error: 'method_not_allowed' }, 405, { allow: 'POST' });
     }
 
-    if (!env.WATCH_APP_CREDENTIAL) {
+    const appCredential = env.WATCH_APP_CREDENTIAL;
+    if (!appCredential) {
       console.error('WATCH_APP_CREDENTIAL is not configured');
       return json({ error: 'server_not_configured' }, 500);
     }
@@ -64,21 +134,45 @@ export function createSessionHandler(dependencies: Dependencies = {}) {
       return json({ error: 'server_not_configured' }, 500);
     }
 
-    if (!credentialsMatch(readBearerCredential(request), env.WATCH_APP_CREDENTIAL)) {
+    if (!credentialsMatch(readBearerCredential(request), appCredential)) {
       return json({ error: 'unauthorized' }, 401, {
         'www-authenticate': 'Bearer',
       });
     }
 
-    const rateLimit = limiter.consume(requestClientKey(request));
-    if (!rateLimit.allowed) {
-      return json({ error: 'rate_limited' }, 429, {
-        'retry-after': String(rateLimit.retryAfter),
-      });
-    }
-
+    const renewal = await readRenewalRequest(request);
     const model = env.REALTIME_MODEL ?? 'openai/gpt-realtime-mini';
-    const appSessionId = randomUUID();
+    let appSessionId: string;
+
+    if (renewal.kind === 'renew') {
+      const verified = verifiedAppSessionId(renewal.appSessionId, appCredential);
+      if (!verified) {
+        const rateLimit = limiter.consume(requestClientKey(request));
+        if (!rateLimit.allowed) {
+          return json({ error: 'rate_limited' }, 429, {
+            'retry-after': String(rateLimit.retryAfter),
+          });
+        }
+        return json({ error: 'invalid_session' }, 400);
+      }
+      appSessionId = verified;
+    } else if (renewal.kind === 'invalid') {
+      const rateLimit = limiter.consume(requestClientKey(request));
+      if (!rateLimit.allowed) {
+        return json({ error: 'rate_limited' }, 429, {
+          'retry-after': String(rateLimit.retryAfter),
+        });
+      }
+      return json({ error: 'invalid_session' }, 400);
+    } else {
+      const rateLimit = limiter.consume(requestClientKey(request));
+      if (!rateLimit.allowed) {
+        return json({ error: 'rate_limited' }, 429, {
+          'retry-after': String(rateLimit.retryAfter),
+        });
+      }
+      appSessionId = issueAppSessionId(randomUUID(), appCredential);
+    }
 
     try {
       const session = await getToken(model, 60);

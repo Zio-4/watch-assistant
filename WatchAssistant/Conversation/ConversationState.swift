@@ -1,5 +1,16 @@
 import SwiftUI
 
+struct ConversationTranscript: Identifiable, Equatable, Sendable {
+    enum Role: String, Equatable, Sendable {
+        case user
+        case assistant
+    }
+
+    let id: String
+    let role: Role
+    var text: String
+}
+
 enum ConversationState: Equatable, Sendable {
     case connecting
     case ready

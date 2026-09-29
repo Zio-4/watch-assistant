@@ -23,7 +23,11 @@ struct SessionClient: Sendable {
         self.urlSession = urlSession
     }
 
-    func createSession(endpoint: URL, credential: String) async throws -> RealtimeSession {
+    func createSession(
+        endpoint: URL,
+        credential: String,
+        appSessionId: String? = nil
+    ) async throws -> RealtimeSession {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
@@ -31,6 +35,10 @@ struct SessionClient: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 15
+        if let appSessionId {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(RenewalRequest(appSessionId: appSessionId))
+        }
 
         let (data, response) = try await urlSession.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -48,6 +56,10 @@ struct SessionClient: Sendable {
     }
 }
 
+private struct RenewalRequest: Encodable {
+    let appSessionId: String
+}
+
 enum SessionClientError: LocalizedError {
     case invalidResponse
     case httpStatus(Int)
@@ -56,6 +68,8 @@ enum SessionClientError: LocalizedError {
         switch self {
         case .invalidResponse:
             "The session service returned an invalid response."
+        case .httpStatus(400):
+            "The conversation session is no longer valid. Tap Retry to start again."
         case .httpStatus(401):
             "The personal app credential was rejected."
         case .httpStatus(403):

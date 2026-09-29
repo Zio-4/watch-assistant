@@ -35,7 +35,7 @@ Deploy `backend/` as the Vercel **Root Directory**, or deploy the Git repo root 
 
 Paste the deployment origin alone if you want — the app appends `/api/realtime/session`. In a browser, that URL should return JSON `{ "ok": true, ... }`. If you get a Vercel login page, turn off Deployment Protection for Production (Project Settings → Deployment Protection). Function logs only appear after this URL hits the serverless function.
 
-The endpoint accepts `Authorization: Bearer <WATCH_APP_CREDENTIAL>` on POST, creates a 60-second client token, and returns the WebSocket URL, expiration, model, audio format, and application session ID. It applies a best-effort limit of five session creations per minute per client IP. For more than one serverless instance, configure a Vercel WAF rate-limit rule or replace the in-memory limiter with a shared store.
+The endpoint accepts `Authorization: Bearer <WATCH_APP_CREDENTIAL>` on POST, creates a 60-second client token, and returns the WebSocket URL, expiration, model, audio format, and application session ID. A new session id is signed with that credential. Renewing a token sends the same id back; the server checks the signature and rejects a missing or altered id instead of starting another conversation. The best-effort limit of five new sessions per minute per client IP does not apply to a verified renewal. For more than one serverless instance, configure a Vercel WAF rate-limit rule or replace the in-memory limiter with a shared store.
 
 Set a budget on the AI Gateway API key in the Vercel dashboard. Budget controls are account configuration and are not stored in this repository.
 
