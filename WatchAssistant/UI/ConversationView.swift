@@ -8,20 +8,21 @@ struct ConversationView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 4) {
-                Image(systemName: controller.state.symbolName)
+                Image(systemName: symbolName)
                     .font(.system(size: 34))
-                    .foregroundStyle(controller.state.tint)
+                    .foregroundStyle(symbolTint)
                     .symbolEffect(
                         .pulse,
-                        isActive: controller.state == .connecting
+                        isActive: controller.isReconnecting
+                            || controller.state == .connecting
                             || controller.state == .recording
                             || controller.state == .playing
                     )
 
-                Text(controller.state.title)
+                Text(controller.state.displayTitle(reconnecting: controller.isReconnecting))
                     .font(.headline)
 
-                Text(controller.state.detail)
+                Text(controller.state.displayDetail(reconnecting: controller.isReconnecting))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -43,9 +44,9 @@ struct ConversationView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(controller.state.tint)
-                    .disabled(controller.actionInFlight)
+                    .disabled(controller.actionInFlight || controller.isReconnecting)
                     .accessibilityIdentifier("primaryAction")
-                } else if controller.actionInFlight {
+                } else if controller.actionInFlight || controller.state == .connecting {
                     ProgressView()
                 }
 
@@ -56,14 +57,14 @@ struct ConversationView: View {
                             Button("Replay") {
                                 Task { await controller.replay() }
                             }
-                            .disabled(controller.actionInFlight)
+                            .disabled(controller.actionInFlight || controller.isReconnecting)
                             .accessibilityIdentifier("replayAction")
                         }
                         if controller.state.showsEndAction {
                             Button("End") {
                                 Task { await controller.endSession() }
                             }
-                            .disabled(controller.actionInFlight)
+                            .disabled(controller.actionInFlight || controller.isReconnecting)
                             .accessibilityIdentifier("endAction")
                         }
                     }
@@ -107,6 +108,22 @@ struct ConversationView: View {
                 #endif
                 await controller.connectIfNeeded()
             }
+            .sensoryFeedback(trigger: controller.hapticSignal) { _, signal in
+                switch signal?.kind {
+                case .start:
+                    .start
+                case .stop:
+                    .stop
+                case .success:
+                    .success
+                case .failure:
+                    .error
+                case .click:
+                    .selection
+                case nil:
+                    nil
+                }
+            }
             .onChange(of: scenePhase) { _, phase in
                 Task {
                     switch phase {
@@ -122,6 +139,20 @@ struct ConversationView: View {
                 }
             }
         }
+    }
+
+    private var symbolName: String {
+        if controller.isReconnecting {
+            return ConversationState.connecting.symbolName
+        }
+        return controller.state.symbolName
+    }
+
+    private var symbolTint: Color {
+        if controller.isReconnecting {
+            return ConversationState.connecting.tint
+        }
+        return controller.state.tint
     }
 }
 

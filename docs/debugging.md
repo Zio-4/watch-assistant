@@ -31,6 +31,14 @@ xcrun simctl privacy booted grant microphone com.philipziolkowski.WatchAssistant
 - `WatchAssistant/Audio/AudioController.swift` — if the Simulator reports a 0 Hz mic format, capture falls back to silent PCM so Talk/Done still complete a turn. A physical watch uses the real microphone tap. Response audio is queued on `AVAudioPlayerNode`; preview Done plays a generated tone so Speaking can be screenshot without a live session.
 - `WatchAssistant/Conversation/ConversationController.swift` — after the preview tone starts, the controller stores sample user and assistant lines in memory so the latest line can show on screen. Preview mode does not renew a session token. A live session keeps the same WebSocket across turns, stores real transcripts in memory, and requests a new token for that same application session shortly before the current token expires.
 
+## Audio errors on the Simulator
+
+`-preview-ready` still asks for the real microphone permission. If that permission is denied, **Talk** shows **Microphone** instead of **Listening**.
+
+A 0 Hz input format is the Simulator microphone. Capture falls back to silent PCM so **Talk** and **Done** can finish. That fallback is not an audio-route failure. On a physical watch, a 0 Hz input is reported as an unavailable speaker or microphone.
+
+Route loss is a missing microphone or speaker, an audio-session interruption, or a route change that removes the current device. Preview mode does not open a WebSocket, so it does not exercise upload retry or reconnect. Those run only with a live session: the spoken turn stays in a temporary file until the gateway accepts it, and a dropped connection reopens that same application session.
+
 ## What not to do
 
 - Do not treat a `-preview-ready` run as proof that audio reached AI Gateway.
