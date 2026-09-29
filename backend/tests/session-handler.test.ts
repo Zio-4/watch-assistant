@@ -8,13 +8,25 @@ const configuredEnvironment = {
   REALTIME_MODEL: 'openai/gpt-realtime-mini',
 };
 
-function request(credential = 'watch-secret') {
+function request(credential = 'watch-secret', ip = '192.0.2.10') {
   return new Request('https://service.test/api/realtime/session', {
     method: 'POST',
     headers: {
       authorization: `Bearer ${credential}`,
-      'x-forwarded-for': '192.0.2.10',
+      'x-forwarded-for': ip,
     },
+  });
+}
+
+function renewalRequest(appSessionId: string, ip = '192.0.2.10') {
+  return new Request('https://service.test/api/realtime/session', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer watch-secret',
+      'content-type': 'application/json',
+      'x-forwarded-for': ip,
+    },
+    body: JSON.stringify({ appSessionId }),
   });
 }
 
@@ -52,13 +64,14 @@ describe('POST /api/realtime/session', () => {
     const response = await handler(request());
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      appSessionId: 'session-id',
+    const body = await response.json();
+    expect(body).toMatchObject({
       model: 'openai/gpt-realtime-mini',
       token: 'vcst_test',
       expiresAt: '2027-01-15T08:00:00.000Z',
       audio: { inputFormat: 'audio/pcm', sampleRate: 24_000, channels: 1 },
     });
+    expect(body.appSessionId).toMatch(/^session-id\.[A-Za-z0-9_-]+$/);
     expect(getToken).toHaveBeenCalledWith('openai/gpt-realtime-mini', 60);
   });
 
@@ -71,56 +84,44 @@ describe('POST /api/realtime/session', () => {
     const handler = createSessionHandler({
       env: configuredEnvironment,
       getToken,
-      limiter: new FixedWindowRateLimiter(5, 60_000),
+      limiter: new FixedWindowRateLimiter(1, 60_000),
       randomUUID: () => 'new-session-id',
     });
 
-    const response = await handler(
-      new Request('https://service.test/api/realtime/session', {
-        method: 'POST',
-        headers: {
-          authorization: 'Bearer watch-secret',
-          'content-type': 'application/json',
-          'x-forwarded-for': '192.0.2.10',
-        },
-        body: JSON.stringify({
-          appSessionId: '11111111-2222-4333-8444-555555555555',
-        }),
-      }),
-    );
+    const created = await handler(request('watch-secret', '192.0.2.20'));
+    const createdBody = await created.json();
+    const limited = await handler(request('watch-secret', '192.0.2.20'));
+    const renewed = await handler(renewalRequest(createdBody.appSessionId, '192.0.2.20'));
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      appSessionId: '11111111-2222-4333-8444-555555555555',
+    expect(created.status).toBe(200);
+    expect(limited.status).toBe(429);
+    expect(renewed.status).toBe(200);
+    await expect(renewed.json()).resolves.toMatchObject({
+      appSessionId: createdBody.appSessionId,
       token: 'vcst_next',
     });
-    expect(getToken).toHaveBeenCalledWith('openai/gpt-realtime-mini', 60);
+    expect(getToken).toHaveBeenCalledTimes(2);
   });
 
-  it('starts a new application session when the renewal id is invalid', async () => {
+  it('rejects a renewal id this server did not issue', async () => {
+    const getToken = vi.fn().mockResolvedValue({ token: 'vcst_test', url: 'wss://test' });
     const handler = createSessionHandler({
       env: configuredEnvironment,
-      getToken: vi.fn().mockResolvedValue({ token: 'vcst_test', url: 'wss://test' }),
+      getToken,
       limiter: new FixedWindowRateLimiter(5, 60_000),
       randomUUID: () => 'session-id',
     });
 
-    const response = await handler(
-      new Request('https://service.test/api/realtime/session', {
-        method: 'POST',
-        headers: {
-          authorization: 'Bearer watch-secret',
-          'content-type': 'application/json',
-          'x-forwarded-for': '192.0.2.11',
-        },
-        body: JSON.stringify({ appSessionId: 'not-a-session' }),
-      }),
+    const malformed = await handler(renewalRequest('not-a-session', '192.0.2.11'));
+    const unknown = await handler(
+      renewalRequest('11111111-2222-4333-8444-555555555555', '192.0.2.11'),
     );
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      appSessionId: 'session-id',
-    });
+    expect(malformed.status).toBe(400);
+    await expect(malformed.json()).resolves.toEqual({ error: 'invalid_session' });
+    expect(unknown.status).toBe(400);
+    await expect(unknown.json()).resolves.toEqual({ error: 'invalid_session' });
+    expect(getToken).not.toHaveBeenCalled();
   });
 
   it('rejects an invalid personal credential', async () => {

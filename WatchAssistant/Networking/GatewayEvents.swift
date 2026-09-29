@@ -39,7 +39,7 @@ struct GatewaySessionUpdate: Encodable, Sendable {
             rate: session.audio.sampleRate
         )
         return Self(config: Configuration(
-            instructions: instructions(including: transcripts),
+            instructions: AssistantPrompt.instructions(including: transcripts),
             voice: "alloy",
             outputModalities: ["audio"],
             inputAudioFormat: input,
@@ -48,21 +48,6 @@ struct GatewaySessionUpdate: Encodable, Sendable {
             outputAudioTranscription: Configuration.AudioTranscription(),
             turnDetection: Configuration.TurnDetection(type: "disabled")
         ))
-    }
-
-    static func instructions(including transcripts: [ConversationTranscript]) -> String {
-        let base = "You are a concise personal assistant on Apple Watch."
-        let lines = transcripts.suffix(12).compactMap { transcript -> String? in
-            let text = transcript.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else { return nil }
-            let speaker = transcript.role == .user ? "User" : "Assistant"
-            return "\(speaker): \(text)"
-        }
-        guard !lines.isEmpty else { return base }
-        return """
-        \(base) Continue this conversation using the earlier turns as context. Do not repeat those turns unless asked.
-        \(lines.joined(separator: "\n"))
-        """
     }
 }
 

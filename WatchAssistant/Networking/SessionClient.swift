@@ -68,6 +68,8 @@ enum SessionClientError: LocalizedError {
         switch self {
         case .invalidResponse:
             "The session service returned an invalid response."
+        case .httpStatus(400):
+            "The conversation session is no longer valid. Tap Retry to start again."
         case .httpStatus(401):
             "The personal app credential was rejected."
         case .httpStatus(403):

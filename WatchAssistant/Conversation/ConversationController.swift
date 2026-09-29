@@ -25,8 +25,6 @@ final class ConversationController {
     private var renewalStopped = false
     private var responseOpen = false
     private var isStartingReply = false
-    private var ignoreGatewayErrorUntil: Date?
-    private var closeRenewalAttempts = 0
     private var didSendAudio = false
     /// Simulator/debug only. Set by `-preview-ready`; skips the live Gateway session.
     private var isLocalPreview = false
@@ -204,7 +202,6 @@ final class ConversationController {
         playbackWatchTask = nil
         await audioController.stopPlayback(keepLastResponse: true)
         if !isLocalPreview {
-            ignoreGatewayErrorUntil = Date().addingTimeInterval(2)
             if shouldCancelResponse {
                 await gatewayClient.cancelActiveResponse()
                 responseOpen = false
@@ -212,11 +209,16 @@ final class ConversationController {
             await gatewayClient.clearInputBuffer()
         }
         didSendAudio = false
+        if case .failed = state { return }
         do {
             let chunks = try await audioController.startCapture(
                 sampleRate: audioSettings.sampleRate,
                 channels: audioSettings.channels
             )
+            if case .failed = state {
+                _ = await audioController.stopCapture()
+                return
+            }
             state = .recording
             captureTask = Task { [weak self] in
                 guard let self else { return }
@@ -269,7 +271,6 @@ final class ConversationController {
             }
             try await gatewayClient.commitTurn()
             responseOpen = true
-            closeRenewalAttempts = 0
             state = .waiting
             DiagnosticLog.audio.info("Committed spoken turn")
         } catch {
@@ -330,27 +331,12 @@ final class ConversationController {
                 watchPlaybackUntilFinished()
             }
         case .error(let message):
-            if let until = ignoreGatewayErrorUntil, until > Date() {
-                DiagnosticLog.connection.error(
-                    "Ignored model error while starting a reply: \(message, privacy: .public)"
-                )
-                return
-            }
             if state == .recording || state == .waiting || state == .playing {
                 responseOpen = false
                 await interruptAudio()
                 state = .failed(message)
             }
         case .connectionClosed(let message):
-            if state == .ready,
-               !renewalInFlight,
-               !isLocalPreview,
-               appSessionID != nil,
-               closeRenewalAttempts < 2 {
-                closeRenewalAttempts += 1
-                Task { await self.renewSessionToken() }
-                return
-            }
             if state == .recording || state == .waiting || state == .playing || state == .ready {
                 responseOpen = false
                 appSessionID = nil
@@ -418,7 +404,6 @@ final class ConversationController {
             await self.audioController.waitUntilPlaybackFinished()
             guard !Task.isCancelled, self.state == .playing else { return }
             await self.audioController.deleteTurnFile()
-            self.closeRenewalAttempts = 0
             self.state = .ready
         }
     }
@@ -510,16 +495,34 @@ final class ConversationController {
                 "Token renewal failed: \(error.localizedDescription, privacy: .public)"
             )
             guard !renewalStopped, appSessionID == currentSessionID else { return }
-            if await gatewayClient.isConnected {
-                renewalTask = nil
-                scheduleTokenRenewal(at: Date().addingTimeInterval(20))
-            } else if state == .ready {
-                responseOpen = false
-                appSessionID = nil
-                audioSettings = nil
-                state = .failed(Self.message(for: error))
+            if Self.shouldShowRenewalFailure(error) || !(await gatewayClient.isConnected) {
+                await failVisibleSession(Self.message(for: error))
+                return
             }
+            renewalTask = nil
+            scheduleTokenRenewal(at: Date().addingTimeInterval(20))
         }
+    }
+
+    private func failVisibleSession(_ message: String) async {
+        if case .failed = state { return }
+        responseOpen = false
+        renewalStopped = true
+        renewalTask?.cancel()
+        renewalTask = nil
+        appSessionID = nil
+        model = nil
+        audioSettings = nil
+        await interruptAudio()
+        await gatewayClient.disconnect()
+        state = .failed(message)
+    }
+
+    private static func shouldShowRenewalFailure(_ error: Error) -> Bool {
+        guard case .httpStatus(let code) = error as? SessionClientError else {
+            return false
+        }
+        return (400..<500).contains(code)
     }
 
     private var canStoreTranscript: Bool {
