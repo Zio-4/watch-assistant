@@ -14,7 +14,14 @@ actor GatewayClient {
         webSocket != nil && !socketFailed
     }
 
-    func connect(to session: RealtimeSession) async throws {
+    var hasOpenEventStream: Bool {
+        eventContinuation != nil
+    }
+
+    func connect(
+        to session: RealtimeSession,
+        transcripts: [ConversationTranscript] = []
+    ) async throws {
         disconnect()
 
         let events = AsyncStream<GatewayServerEvent>.makeStream()
@@ -33,7 +40,9 @@ actor GatewayClient {
 
         adopt(opened)
         do {
-            try await sendJSON(GatewaySessionUpdate.configured(session: session))
+            try await sendJSON(
+                GatewaySessionUpdate.configured(session: session, transcripts: transcripts)
+            )
         } catch {
             disconnect()
             throw error
@@ -65,6 +74,20 @@ actor GatewayClient {
 
     func sendAudioChunk(_ pcm16: Data) async throws {
         try await sendJSON(GatewayInputAudioAppend(audio: pcm16.base64EncodedString()))
+    }
+
+    func sendPCM(_ pcm16: Data, sampleRate: Int, channels: Int) async throws {
+        let bytesPerFrame = max(channels, 1) * MemoryLayout<Int16>.size
+        guard bytesPerFrame > 0, !pcm16.isEmpty else { return }
+        let chunkSize = max(bytesPerFrame * max(sampleRate / 10, 1), bytesPerFrame)
+        var offset = 0
+        while offset < pcm16.count {
+            let end = min(offset + chunkSize, pcm16.count)
+            let alignedEnd = end - ((end - offset) % bytesPerFrame)
+            if alignedEnd <= offset { break }
+            try await sendAudioChunk(Data(pcm16[offset..<alignedEnd]))
+            offset = alignedEnd
+        }
     }
 
     func commitTurn() async throws {

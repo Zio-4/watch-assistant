@@ -18,12 +18,64 @@ actor AudioController {
     private var playbackStarted = false
     private var isPlaybackActive = false
     private var playbackWaiters: [CheckedContinuation<Void, Never>] = []
+    private var routeObserver: NSObjectProtocol?
+    private var interruptionObserver: NSObjectProtocol?
+    private var problemStream: AsyncStream<AudioControllerError>?
+    private var problemContinuation: AsyncStream<AudioControllerError>.Continuation?
 
     /// About 80 ms of 24 kHz mono PCM16, enough to start the player without waiting for the full reply.
     private let playbackStartThresholdBytes = 3_840
 
     var hasLastResponse: Bool {
         !lastResponse.isEmpty
+    }
+
+    func problems() -> AsyncStream<AudioControllerError> {
+        if let problemStream {
+            return problemStream
+        }
+        let stream = AsyncStream<AudioControllerError>.makeStream()
+        problemStream = stream.stream
+        problemContinuation = stream.continuation
+        return stream.stream
+    }
+
+    func resolveMicrophoneAccess() async -> Bool {
+        let status = await MainActor.run { AVAudioApplication.shared.recordPermission }
+        switch status {
+        case .granted:
+            return true
+        case .denied:
+            DiagnosticLog.audio.error("Microphone permission denied")
+            return false
+        case .undetermined:
+            let granted = await Self.requestMicrophoneAccess()
+            if !granted {
+                DiagnosticLog.audio.error("Microphone permission denied")
+            }
+            return granted
+        @unknown default:
+            DiagnosticLog.audio.error("Microphone permission denied")
+            return false
+        }
+    }
+
+    func prepareAudioRoute() async throws {
+        try await activateAudioSession()
+        startRouteObservation()
+    }
+
+    func hasPendingTurnFile() -> Bool {
+        guard let turnFileURL else { return false }
+        let bytes = (try? FileManager.default.attributesOfItem(atPath: turnFileURL.path)[.size] as? NSNumber)?
+            .int64Value ?? 0
+        return bytes > 0
+    }
+
+    func pendingTurnPCM() -> Data? {
+        guard let turnFileURL else { return nil }
+        guard let data = try? Data(contentsOf: turnFileURL), !data.isEmpty else { return nil }
+        return data
     }
 
     func startCapture(sampleRate: Int, channels: Int) async throws -> AsyncThrowingStream<Data, Error> {
@@ -33,24 +85,30 @@ actor AudioController {
         if isCapturing {
             _ = await stopCapture()
         }
+        if let existingTurn = turnFileURL {
+            try? FileManager.default.removeItem(at: existingTurn)
+            turnFileURL = nil
+        }
 
-        let granted = await Self.requestMicrophoneAccess()
+        let granted = await resolveMicrophoneAccess()
         guard granted else {
             throw AudioControllerError.microphoneDenied
         }
 
-        try await MainActor.run {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [])
-            try session.setActive(true)
-        }
+        try await activateAudioSession()
+        startRouteObservation()
 
         let input = engine.inputNode
         let inputFormat = input.inputFormat(forBus: 0)
         // Simulator-only: Watch Simulator often reports 0 Hz, so Talk has no mic buffers.
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+            #if targetEnvironment(simulator)
             DiagnosticLog.audio.info("Microphone format unavailable; using silence for this turn")
             return try startSilenceCapture(sampleRate: sampleRate, channels: max(channels, 1))
+            #else
+            DiagnosticLog.audio.error("Microphone route unavailable")
+            throw AudioControllerError.audioRouteUnavailable
+            #endif
         }
 
         let outputFormat = try AudioFormatConverter.makeOutputFormat(
@@ -85,8 +143,12 @@ actor AudioController {
         do {
             try engine.start()
         } catch {
+            DiagnosticLog.audio.error(
+                "Audio engine failed: \(error.localizedDescription, privacy: .public)"
+            )
             await cleanupCapture(finishStream: true)
-            throw error
+            await deleteTurnFile()
+            throw AudioControllerError.audioRouteUnavailable
         }
 
         isCapturing = true
@@ -210,11 +272,8 @@ actor AudioController {
     }
 
     private func beginPlaybackSession(sampleRate: Int, channels: Int) async throws {
-        try await MainActor.run {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [])
-            try session.setActive(true)
-        }
+        try await activateAudioSession()
+        startRouteObservation()
 
         playbackFormat = try AudioFormatConverter.makePlaybackFormat(
             sampleRate: Double(sampleRate),
@@ -240,7 +299,14 @@ actor AudioController {
         }
         if !engine.isRunning {
             engine.prepare()
-            try engine.start()
+            do {
+                try engine.start()
+            } catch {
+                DiagnosticLog.audio.error(
+                    "Playback route failed: \(error.localizedDescription, privacy: .public)"
+                )
+                throw AudioControllerError.audioRouteUnavailable
+            }
         }
         try schedulePlayback(pcm16)
         if !playerNode.isPlaying {
@@ -316,6 +382,61 @@ actor AudioController {
         isCapturing = false
     }
 
+    private func activateAudioSession() async throws {
+        do {
+            try await MainActor.run {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playAndRecord, mode: .voiceChat, options: [])
+                try session.setActive(true)
+            }
+        } catch {
+            DiagnosticLog.audio.error(
+                "Audio session failed: \(error.localizedDescription, privacy: .public)"
+            )
+            throw AudioControllerError.audioRouteUnavailable
+        }
+    }
+
+    private func startRouteObservation() {
+        guard routeObserver == nil else { return }
+        let center = NotificationCenter.default
+        routeObserver = center.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            let reason = (notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? NSNumber)?.uintValue
+            Task { await self?.handleRouteChange(reason: reason) }
+        }
+        interruptionObserver = center.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            let type = (notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? NSNumber)?.uintValue
+            Task { await self?.handleInterruption(type: type) }
+        }
+    }
+
+    private func handleRouteChange(reason: UInt?) {
+        guard isCapturing || isPlaybackActive else { return }
+        guard let reason, let change = AVAudioSession.RouteChangeReason(rawValue: reason) else { return }
+        switch change {
+        case .oldDeviceUnavailable, .noSuitableRouteForCategory:
+            DiagnosticLog.audio.error("Audio route lost reason=\(reason, privacy: .public)")
+            problemContinuation?.yield(.audioRouteUnavailable)
+        default:
+            break
+        }
+    }
+
+    private func handleInterruption(type: UInt?) {
+        guard isCapturing || isPlaybackActive else { return }
+        guard let type, AVAudioSession.InterruptionType(rawValue: type) == .began else { return }
+        DiagnosticLog.audio.error("Audio route interrupted")
+        problemContinuation?.yield(.audioRouteUnavailable)
+    }
+
     private static func requestMicrophoneAccess() async -> Bool {
         await withCheckedContinuation { continuation in
             AVAudioApplication.requestRecordPermission { granted in
@@ -325,18 +446,19 @@ actor AudioController {
     }
 }
 
-enum AudioControllerError: LocalizedError {
+enum AudioControllerError: LocalizedError, Sendable {
     case microphoneDenied
     case unavailableInput
+    case audioRouteUnavailable
     case playbackUnavailable
     case noResponseToReplay
 
     var errorDescription: String? {
         switch self {
         case .microphoneDenied:
-            "Microphone access is required to talk."
-        case .unavailableInput:
-            "The watch microphone is not available."
+            "Allow the microphone in Settings."
+        case .unavailableInput, .audioRouteUnavailable:
+            "Speaker or microphone unavailable."
         case .playbackUnavailable:
             "The watch speaker could not start playback."
         case .noResponseToReplay:
